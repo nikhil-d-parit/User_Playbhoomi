@@ -17,6 +17,7 @@ import api from '../src/services/apiService';
 import FilterModal from "../components/FilterModal";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
+import { useSelector } from 'react-redux';
 
 //importing icons
 import {
@@ -75,12 +76,16 @@ const HomeScreen = () => {
   const [selectedSport, setSelectedSport] = useState(null);
   const [filterVisible, setFilterVisible] = useState(false);
   const [userName, setUserName] = useState("");
+  const [userPhoto, setUserPhoto] = useState("https://i.pravatar.cc/100?img=1");
   const [location, setLocation] = useState(null);
   const [locationString, setLocationString] = useState("Loading location...");
   const [isLoading, setIsLoading] = useState(false);
   const [noResults, setNoResults] = useState(false);
   const [isFiltered, setIsFiltered] = useState(false);
   const navigation = useNavigation();
+  
+  // Get user data from Redux store
+  const reduxUser = useSelector((state) => state.auth.user);
 
   const getLocationDetails = async (latitude, longitude) => {
     try {
@@ -139,11 +144,16 @@ const HomeScreen = () => {
    try {
      setIsLoading(true);
      setNoResults(false);
+     console.log('🔍 Fetching nearby venues with coords:', { latitude, longitude });
      const response = await api.post("/users/nearby-venues", {
        latitude,
        longitude,
      });
      const venues = response.data || [];
+     console.log('📍 Backend returned venues:', venues.length, 'venues');
+     if (venues.length > 0) {
+       console.log('📍 First venue:', venues[0]);
+     }
      const activeVenues = venues.filter((venue) => venue.deleted !== true);
     //  console.log(
     //    "Filtered nearby venues:",
@@ -154,6 +164,7 @@ const HomeScreen = () => {
      setNoResults(activeVenues.length === 0);
    } catch (error) {
      console.error("Error fetching nearby venues:", error);
+     console.error("Error details:", error.response?.data);
      setVenueData([]);
      setNoResults(true);
    } finally {
@@ -165,16 +176,19 @@ const HomeScreen = () => {
     try {
       setIsLoading(true);
       setNoResults(false);
+      console.log('🔍 Searching turfs with:', { keyword, latitude, longitude });
       const response = await api.post('/users/search-turfs', {
         keyword,
         latitude,
         longitude
       });
+      console.log('📍 Search returned:', response.data?.length || 0, 'turfs');
       console.log('Search turfs data:', JSON.stringify(response.data, null, 2));
       setVenueData(response.data || []);
       setNoResults(response.data?.length === 0);
     } catch (error) {
       console.error('Error searching turfs:', error);
+      console.error('Error details:', error.response?.data);
       setVenueData([]);
       setNoResults(true);
     } finally {
@@ -185,18 +199,26 @@ const HomeScreen = () => {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        // Get user data
-        const userDataStr = await AsyncStorage.getItem('userData');
-        if (userDataStr) {
-          const userData = JSON.parse(userDataStr);
-          // Handle guest users who don't have a name property
-          if (userData.isGuest) {
-            setUserName('Guest');
-          } else if (userData.name) {
-            const firstName = userData.name.split(' ')[0];
-            setUserName(firstName);
-          } else {
-            setUserName('User');
+        // Priority 1: Get user data from Redux store (most up-to-date)
+        if (reduxUser) {
+          const firstName = (reduxUser.name || reduxUser.displayName || 'User').split(' ')[0];
+          setUserName(firstName);
+          setUserPhoto(reduxUser.photoURL || "https://i.pravatar.cc/100?img=1");
+        } else {
+          // Priority 2: Fallback to AsyncStorage
+          const userDataStr = await AsyncStorage.getItem('userData');
+          if (userDataStr) {
+            const userData = JSON.parse(userDataStr);
+            // Handle guest users who don't have a name property
+            if (userData.isGuest) {
+              setUserName('Guest');
+            } else if (userData.name || userData.displayName) {
+              const firstName = (userData.name || userData.displayName).split(' ')[0];
+              setUserName(firstName);
+              setUserPhoto(userData.photoURL || "https://i.pravatar.cc/100?img=1");
+            } else {
+              setUserName('User');
+            }
           }
         }
 //  // Get location and fetch nearby venues
@@ -221,7 +243,7 @@ const HomeScreen = () => {
     };
 
     initializeData();
-  }, []);
+  }, [reduxUser]); // Re-run when Redux user changes
 
   const sports = [
     {
@@ -290,7 +312,7 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
         <Image
-          source={{ uri: "https://i.pravatar.cc/100?img=1" }}
+          source={{ uri: userPhoto }}
           style={styles.profileImage}
         />
       </View>

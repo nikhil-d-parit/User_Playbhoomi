@@ -1,12 +1,18 @@
 
 import { initializeApp, getApps } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { 
+  initializeAuth, 
+  getReactNativePersistence,
+  browserLocalPersistence 
+} from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import config from '../../config';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyDH5ZEws-7_iIyuEWbMtCmJhiXvcVv5NwU',
-  authDomain: 'venuebackend-e7230.firebaseapp.com',
-  projectId: 'venuebackend-e7230',
+  apiKey: config.FIREBASE_API_KEY,
+  authDomain: config.FIREBASE_AUTH_DOMAIN,
+  projectId: config.FIREBASE_PROJECT_ID,
 };
 
 // Initialize Firebase if it hasn't been initialized yet
@@ -17,8 +23,11 @@ if (!getApps().length) {
   app = getApps()[0];
 }
 
+// Use different persistence based on platform
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage)
+  persistence: Platform.OS === 'web' 
+    ? browserLocalPersistence 
+    : getReactNativePersistence(AsyncStorage)
 });
 
 export { app, auth };

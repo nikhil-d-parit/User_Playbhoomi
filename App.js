@@ -31,6 +31,8 @@ import BookingStatus from "./screens/BookingStatus";
 import CheckoutScreen from "./screens/Checkout";
 import ChangePasswordScreen from "./screens/ChangePassword";
 import HelpSupportScreen from "./screens/HelpSupport";
+import EditProfileScreen from "./screens/EditProfile";
+import TermsConditionsScreen from "./screens/TermsConditions";
 
 // Navigators
 const Stack = createNativeStackNavigator();
@@ -233,6 +235,16 @@ export default function App() {
               }}
             />
             <Stack.Screen
+              name="EditProfile"
+              component={ScreenWrapper(EditProfileScreen, {
+                withInsets: true,
+              })}
+              options={{
+                title: "Edit Profile",
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
               name="ChangePasswordScreen"
               component={ScreenWrapper(ChangePasswordScreen, {
                 withInsets: true,
@@ -246,7 +258,15 @@ export default function App() {
               name="HelpSupportScreen"
               component={ScreenWrapper(HelpSupportScreen, { withInsets: true })}
               options={{
-                title: "Help Support",
+                title: "Help & Support",
+                headerShown: true,
+              }}
+            />
+            <Stack.Screen
+              name="TermsConditionsScreen"
+              component={ScreenWrapper(TermsConditionsScreen, { withInsets: true })}
+              options={{
+                title: "Terms & Conditions",
                 headerShown: true,
               }}
             />

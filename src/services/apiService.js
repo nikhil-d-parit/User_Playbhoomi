@@ -1,7 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import config from '../../config'; // Fixed: Go up two levels (services -> src -> root)
 
-export const API_URL = 'https://venue-backend-vigy.onrender.com/api';
+export const API_URL = config.API_URL;
 
 // Create a custom axios instance
 const api = axios.create({

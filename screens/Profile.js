@@ -12,7 +12,7 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../src/services/authService';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { clearAuth } from '../src/store/slices/authSlice';
 import Toast from 'react-native-toast-message';
 import { useNavigation } from "@react-navigation/native";
@@ -23,9 +23,18 @@ import termsDocs from "../assets/icons/gradient/icon-document-gradient.png";
 import signOut from "../assets/icons/gradient/icon-exit_app-gradient.png";
 import lockIcon from "../assets/icons/gray/lock.png";
 import rightIcon from "../assets/icons/gradient/icon-arrow_right-gradient.png";
+
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  
+  // Get user data from Redux store
+  const user = useSelector((state) => state.auth.user);
+  
+  // Fallback values if user data is not available
+  const displayName = user?.name || user?.displayName || 'User';
+  const displayEmail = user?.email || 'No email';
+  const displayPhoto = user?.photoURL || "https://i.pravatar.cc/100?img=1";
 
   return (
     <ScrollView style={styles.container}>
@@ -33,17 +42,19 @@ const ProfileScreen = () => {
       <View style={styles.profileInfo}>
         <View style={styles.avatarCircle}>
           <Image
-            source={{ uri: "https://i.pravatar.cc/100?img=1" }}
+            source={{ uri: displayPhoto }}
             style={{ width: 80, height: 80, borderRadius: 50 }}
           />
         </View>
-        <Text style={styles.name}>John Smith</Text>
-        <Text style={styles.email}>john.smith@email.com</Text>
+        <Text style={styles.name}>{displayName}</Text>
+        <Text style={styles.email}>{displayEmail}</Text>
       </View>
 
-      {/* Menu Items */}
       <View style={styles.menuSection}>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('EditProfile')}
+        >
           <Image source={editProfileIcon} style={{ width: 20, height: 20 }} />
           <Text style={styles.menuText}>Edit Profile</Text>
           <Image source={rightIcon} style={{ width: 20, height: 20 }} />
@@ -68,7 +79,10 @@ const ProfileScreen = () => {
           <Image source={rightIcon} style={{ width: 20, height: 20 }} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('TermsConditionsScreen')}
+        >
           <Image source={termsDocs} style={{ width: 20, height: 20 }} />
 
           <Text style={styles.menuText}>Terms & Conditions</Text>

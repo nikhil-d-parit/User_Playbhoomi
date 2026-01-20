@@ -13,7 +13,7 @@ import { Text, Chip } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import api from "../src/services/apiService";
-import MapView, { Marker } from "react-native-maps";
+// import MapView, { Marker } from "react-native-maps"; // Commented out for web compatibility
 
 // Icons
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";

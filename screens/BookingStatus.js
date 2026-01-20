@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react"; // removed unused useState
 import {
   View,
   Text,
@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
+import RazorpayCheckout from "react-native-razorpay";
 
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";
 import turfImage from "../assets/TURF1.jpeg";
@@ -19,6 +21,54 @@ import cricketGradBat from "../assets/icons/gradient/icon-cricket-gradient.png";
 
 const BookingStatus = () => {
   const navigation = useNavigation();
+
+  const handlePayment = () => {
+    const options = {
+      description: "Booking - Sports Arena Complex",
+      image: "https://i.pravatar.cc/100?img=1",
+      currency: "INR",
+      key: "rzp_test_S3FeXSaaVbsCC4",
+      amount: 51750, // ✅ MUST be number (paise)
+      name: "PlayBhoomi",
+
+      // ❌ Do NOT send order_id unless from backend
+      // order_id: "order_xxxxxx",
+
+      prefill: {
+        email: "nikhilparit@gmail.com",
+        contact: "8668523316",
+        name: "User",
+      },
+      theme: { color: "#00C247" },
+    };
+
+    RazorpayCheckout.open(options)
+      .then((data) => {
+        if (data?.razorpay_payment_id) {
+          Alert.alert(
+            "Payment Successful",
+            `Payment ID: ${data.razorpay_payment_id}`
+          );
+
+          // navigation.navigate("Home");
+        } else {
+          Alert.alert("Payment Failed", "Invalid payment response");
+        }
+      })
+      .catch((error) => {
+        console.log(
+          "Razorpay Error:",
+          JSON.stringify(error, null, 2)
+        );
+
+        Alert.alert(
+          "Payment Failed",
+          error?.description ||
+            error?.message ||
+            "Payment cancelled or failed"
+        );
+      });
+  };
 
   return (
     <View style={styles.screen}>
@@ -109,7 +159,7 @@ const BookingStatus = () => {
         {/* Pay Button */}
         <TouchableOpacity
           style={styles.gradientButton}
-          onPress={() => navigation.navigate("BookingStatus")}
+          onPress={handlePayment}
         >
           <LinearGradient
             colors={["#00C247", "#004CE8"]}

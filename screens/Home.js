@@ -145,10 +145,10 @@ const HomeScreen = () => {
      });
      const venues = response.data || [];
      const activeVenues = venues.filter((venue) => venue.deleted !== true);
-     console.log(
-       "Filtered nearby venues:",
-       JSON.stringify(activeVenues)
-     );
+    //  console.log(
+    //    "Filtered nearby venues:",
+    //    JSON.stringify(activeVenues)
+    //  );
 
      setVenueData(activeVenues);
      setNoResults(activeVenues.length === 0);

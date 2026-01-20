@@ -94,6 +94,7 @@ const ProfileScreen = () => {
                   try {
                     await authService.logout();
 
+                    // Clear AsyncStorage items
                     await AsyncStorage.multiRemove([
                       'userToken',
                       'firebaseToken',

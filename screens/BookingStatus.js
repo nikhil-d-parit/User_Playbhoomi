@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,19 +6,145 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import api from "../src/services/apiService";
 
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";
 import turfImage from "../assets/TURF1.jpeg";
 import clockIcon from "../assets/icons/gradient/icon-timelapse-gradient.png";
 import calenderIcon from "../assets/icons/gradient/icon-calendar-gradient.png";
 import cricketGradBat from "../assets/icons/gradient/icon-cricket-gradient.png";
+import footBallIconGrad from "../assets/icons/gradient/icon-football-gradient.png";
+import tennisIconGrad from "../assets/icons/gradient/icon-tennis-gradient.png";
 
 const BookingStatus = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+
+  // Get data from navigation params
+  const { bookingSummary, userLocks = [], date } = route.params || {};
+
+  const [processing, setProcessing] = useState(false);
+
+  // Sport icons mapping
+  const sportIcons = {
+    cricket: cricketGradBat,
+    football: footBallIconGrad,
+    tennis: tennisIconGrad,
+  };
+
+  // Calculate values from booking summary
+  const pricePerSlot = bookingSummary?.pricePerSlot || 0;
+  const totalSlots = bookingSummary?.totalSlots || 0;
+  const baseAmount = bookingSummary?.baseAmount || 0;
+  const taxRate = bookingSummary?.taxRate || 0;
+  const taxAmount = bookingSummary?.taxAmount || 0;
+  const convenienceFee = bookingSummary?.convenienceFee || 0;
+  const discountRate = bookingSummary?.discountRate || 0;
+  const discountAmount = bookingSummary?.discountAmount || 0;
+  const finalAmount = bookingSummary?.finalAmount || 0;
+  const totalBeforeDiscount = baseAmount + taxAmount + convenienceFee;
+
+  // Get sport icon
+  const selectedSport = bookingSummary?.selectedSport || "cricket";
+  const sportIcon = sportIcons[selectedSport.toLowerCase()] || cricketGradBat;
+
+  // Format slots for display
+  const formatSlots = () => {
+    const slots = bookingSummary?.selectedSlots || [];
+    if (slots.length === 0) return "8:00 AM - 9:00 AM (1hr)";
+    if (slots.length === 1) return slots[0];
+    return `${slots[0]} + ${slots.length - 1} more`;
+  };
+
+  // Handle payment
+  const handlePayment = async () => {
+    if (!bookingSummary) {
+      Alert.alert("Error", "Booking information is missing");
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      // Step 1: Confirm all locks
+      if (userLocks.length > 0) {
+        await Promise.all(
+          userLocks.map(async ({ lockId }) => {
+            try {
+              await api.patch(`/slots/confirm/${lockId}`);
+            } catch (err) {
+              console.error("Error confirming lock:", err);
+            }
+          })
+        );
+      }
+
+      // Step 2: Create booking for each slot
+      const bookingPromises = (bookingSummary.selectedSlots || []).map(async (timeSlot) => {
+        const bookingData = {
+          orderId: `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          amount: pricePerSlot,
+          turfId: bookingSummary.turfId,
+          vendorId: bookingSummary.vendorId || "",
+          timeSlot,
+          date,
+          sports: selectedSport.toLowerCase(),
+        };
+
+        return api.post("/bookings/mock-payment-success", bookingData);
+      });
+
+      await Promise.all(bookingPromises);
+
+      // Step 3: Show success and navigate
+      Alert.alert(
+        "Booking Confirmed!",
+        `Your booking at ${bookingSummary.turfTitle || "the turf"} has been confirmed.`,
+        [
+          {
+            text: "View My Bookings",
+            onPress: () => navigation.navigate("Bookings"),
+          },
+          {
+            text: "Go Home",
+            onPress: () => navigation.navigate("Home"),
+          },
+        ]
+      );
+    } catch (err) {
+      console.error("Payment error:", err.response?.data || err.message);
+      Alert.alert("Payment Failed", "There was an error processing your payment. Please try again.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // Cleanup locks if user goes back without completing payment
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (processing) {
+        e.preventDefault();
+        return;
+      }
+
+      // Release locks if going back
+      userLocks.forEach(async ({ lockId }) => {
+        try {
+          await api.delete(`/slots/unlock/${lockId}`);
+        } catch (err) {
+          console.error("Error releasing lock on back:", err);
+        }
+      });
+    });
+
+    return unsubscribe;
+  }, [navigation, userLocks, processing]);
 
   return (
     <View style={styles.screen}>
@@ -31,32 +157,61 @@ const BookingStatus = () => {
             </View>
 
             <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>Sports Arena Complex</Text>
+              <Text style={styles.headerTitle}>
+                {bookingSummary?.turfTitle || "Sports Arena Complex"}
+              </Text>
               <View style={styles.locationRow}>
                 <Image source={locationIcon} style={styles.locationIcon} />
-                <Text style={styles.locationText}>Sector 18, Noida, UP</Text>
+                <Text style={styles.locationText}>
+                  {bookingSummary?.location || "Sector 18, Noida, UP"}
+                </Text>
               </View>
             </View>
           </View>
         </View>
 
+        {/* Lock Warning Banner */}
+        {userLocks.length > 0 && (
+          <View style={styles.lockBanner}>
+            <MaterialIcons name="lock-clock" size={18} color="#856404" />
+            <Text style={styles.lockBannerText}>
+              Slots reserved for 10 minutes. Complete payment to confirm.
+            </Text>
+          </View>
+        )}
+
         {/* Sports */}
         <Text style={styles.sectionTitle}>Sports</Text>
         <View style={styles.rowWithIcon}>
-          <Image source={cricketGradBat} style={styles.iconSmall} />
-          <Text style={styles.detailText}>Cricket</Text>
+          <Image source={sportIcon} style={styles.iconSmall} />
+          <Text style={styles.detailText}>
+            {selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)}
+          </Text>
         </View>
 
         {/* Date & Time */}
         <Text style={styles.sectionTitle}>Date & Time</Text>
         <View style={styles.rowWithIcon}>
           <Image source={calenderIcon} style={styles.iconSmall} />
-          <Text style={styles.detailText}>Saturday, 04/10/2025</Text>
+          <Text style={styles.detailText}>{date || "Saturday, 04/10/2025"}</Text>
         </View>
         <View style={styles.rowWithIcon}>
           <Image source={clockIcon} style={styles.iconSmall} />
-          <Text style={styles.detailText}>8:00 AM - 9:00 AM (1hr)</Text>
+          <Text style={styles.detailText}>{formatSlots()}</Text>
         </View>
+
+        {/* Selected Slots List */}
+        {bookingSummary?.selectedSlots?.length > 1 && (
+          <View style={styles.slotsListContainer}>
+            <Text style={styles.slotsListTitle}>Selected Slots:</Text>
+            {bookingSummary.selectedSlots.map((slot, index) => (
+              <View key={index} style={styles.slotItem}>
+                <MaterialIcons name="access-time" size={14} color="#004CE8" />
+                <Text style={styles.slotItemText}>{slot}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Booking Summary Card */}
         <View style={styles.card}>
@@ -64,37 +219,41 @@ const BookingStatus = () => {
 
           <View style={styles.cardRow}>
             <View>
-              <Text style={styles.itemLabel}>Cricket Court - 1 Hour</Text>
-              <Text style={[styles.itemSubLabel,{fontFamily:'Inter_400Regular', fontSize:14, color:'#757575'}]}>₹500/hr</Text>
+              <Text style={styles.itemLabel}>
+                {selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1)} - {totalSlots} Slot{totalSlots > 1 ? "s" : ""}
+              </Text>
+              <Text style={[styles.itemSubLabel, { fontFamily: 'Inter_400Regular', fontSize: 14, color: '#757575' }]}>
+                Rs.{pricePerSlot}/slot
+              </Text>
             </View>
-            <Text style={styles.itemValue}>₹500.00</Text>
+            <Text style={styles.itemValue}>Rs.{baseAmount}.00</Text>
           </View>
 
           <View style={styles.cardRow}>
-            <Text style={styles.itemLabel}>Tax (8%)</Text>
-            <Text style={styles.itemValue}>₹40.00</Text>
+            <Text style={styles.itemLabel}>Tax ({taxRate}%)</Text>
+            <Text style={styles.itemValue}>Rs.{taxAmount}.00</Text>
           </View>
 
           <View style={styles.cardRow}>
             <Text style={styles.itemLabel}>Convenience Fee</Text>
-            <Text style={styles.itemValue}>₹35.00</Text>
+            <Text style={styles.itemValue}>Rs.{convenienceFee}.00</Text>
           </View>
 
           <View style={styles.cardRow}>
             <Text style={styles.itemLabel}>Booking Amount</Text>
-            <Text style={styles.itemValue}>₹575.00</Text>
+            <Text style={styles.itemValue}>Rs.{totalBeforeDiscount}.00</Text>
           </View>
 
           <View style={styles.cardRow}>
-            <Text style={styles.itemLabel}>Discount Applied (10%)</Text>
-            <Text style={styles.itemValue}>₹57.50</Text>
+            <Text style={styles.itemLabel}>Discount Applied ({discountRate}%)</Text>
+            <Text style={[styles.itemValue, { color: "#00C247" }]}>-Rs.{discountAmount}.00</Text>
           </View>
 
           <View style={styles.separator} />
 
           <View style={styles.cardRow}>
             <Text style={styles.totalLabel}>Total Booking Amount</Text>
-            <Text style={styles.totalValue}>₹517.50</Text>
+            <Text style={styles.totalValue}>Rs.{finalAmount}.00</Text>
           </View>
         </View>
 
@@ -102,23 +261,40 @@ const BookingStatus = () => {
         <View style={styles.bottomBanner}>
           <MaterialIcons name="celebration" size={20} color="#00C247" />
           <Text style={styles.savedText}>
-            You saved <Text style={styles.greenAmount}>₹57.50</Text> on this booking
+            You saved <Text style={styles.greenAmount}>Rs.{discountAmount}.00</Text> on this booking
           </Text>
         </View>
 
         {/* Pay Button */}
         <TouchableOpacity
           style={styles.gradientButton}
-          onPress={() => navigation.navigate("BookingStatus")}
+          onPress={handlePayment}
+          disabled={processing}
         >
           <LinearGradient
-            colors={["#00C247", "#004CE8"]}
+            colors={processing ? ["#999", "#666"] : ["#00C247", "#004CE8"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1.5 }}
             style={styles.gradientButtonBg}
           >
-            <Text style={styles.gradientButtonText}>Pay</Text>
+            {processing ? (
+              <View style={styles.processingRow}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={[styles.gradientButtonText, { marginLeft: 8 }]}>Processing...</Text>
+              </View>
+            ) : (
+              <Text style={styles.gradientButtonText}>Pay Rs.{finalAmount}.00</Text>
+            )}
           </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Cancel Button */}
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => navigation.goBack()}
+          disabled={processing}
+        >
+          <Text style={styles.cancelButtonText}>Cancel & Release Slots</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -162,7 +338,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily:"Inter500Medium",
+    fontWeight: "500",
     color: "#1E1E1E",
   },
   locationRow: {
@@ -178,12 +354,26 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 14,
     color: "#757575",
-    fontFamily:"Inter400Regular"
+  },
+
+  lockBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3CD",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  lockBannerText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 13,
+    color: "#856404",
   },
 
   sectionTitle: {
     fontSize: 16,
-    fontFamily:"Inter_600SemiBold",
+    fontWeight: "600",
     marginTop: 20,
     color: "#303030",
   },
@@ -202,6 +392,29 @@ const styles = StyleSheet.create({
     color: "#1E1E1E",
   },
 
+  slotsListContainer: {
+    backgroundColor: "#F5F5F5",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  slotsListTitle: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#666",
+    marginBottom: 8,
+  },
+  slotItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  slotItemText: {
+    marginLeft: 6,
+    fontSize: 13,
+    color: "#333",
+  },
+
   card: {
     width: "100%",
     borderWidth: 1,
@@ -213,7 +426,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontFamily:"Inter_600SemiBold",
+    fontWeight: "600",
     marginBottom: 12,
     color: "#303030",
   },
@@ -225,18 +438,15 @@ const styles = StyleSheet.create({
   itemLabel: {
     fontSize: 16,
     color: "#000",
-    fontFamily:'Inter_400Regular'
   },
   itemSubLabel: {
     fontSize: 14,
     color: "#1E1E1E",
     marginTop: 2,
-    fontFamily:'Inter_400Regular'
   },
   itemValue: {
     fontSize: 14,
     color: "#1E1E1E",
-     fontFamily:'Inter_400Regular'
   },
   separator: {
     height: 1,
@@ -267,12 +477,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
     color: "#1E1E1E",
-    fontFamily:'Inter_400Regular'
   },
   greenAmount: {
     color: "#00C247",
-   fontFamily:'Inter_400Regular',
-   fontSize:14
+    fontSize: 14,
   },
 
   gradientButton: {
@@ -291,6 +499,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  processingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  cancelButton: {
+    marginTop: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#D32F2F",
+    fontSize: 14,
+    fontWeight: "500",
   },
 });
 

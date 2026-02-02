@@ -85,7 +85,14 @@ export const authService = {
 
   // Sign out user
   async logout() {
-    await signOut(auth);
+    try {
+      console.log('Attempting to sign out from Firebase...');
+      await signOut(auth);
+      console.log('Firebase sign out successful');
+    } catch (error) {
+      console.error('Firebase sign out error:', error);
+      // Even if Firebase logout fails, we should still proceed with clearing local storage
+    }
   },
 
   // Get current auth state

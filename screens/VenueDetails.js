@@ -142,8 +142,11 @@ const VenueDetailsScreen = ({ route }) => {
               style={{ width: 14, height: 14, marginRight: 6 }}
             />
             <Text style={styles.subTitle}>
-              {turfDetails?.vendorLocation?.address},{" "}
-              {turfDetails?.vendorLocation?.city} • 2 km
+              {/* Handle both string and object vendorLocation */}
+              {typeof turfDetails?.vendorLocation === 'string'
+                ? turfDetails.vendorLocation
+                : `${turfDetails?.vendorLocation?.address || ''}, ${turfDetails?.vendorLocation?.city || ''}`
+              } • {turfDetails?.address || ''}
             </Text>
           </View>
 
@@ -180,8 +183,9 @@ const VenueDetailsScreen = ({ route }) => {
               style={{ width: 18, height: 18, marginRight: 6 }}
             />
             <Text style={styles.sportText}>
-              {turfDetails?.timeSlots?.[0]?.open} AM -{" "}
-              {turfDetails?.timeSlots?.[0]?.close} PM
+              {/* Get timeSlots from sports array or root level */}
+              {turfDetails?.sports?.[0]?.timeSlots?.[0]?.open || turfDetails?.timeSlots?.[0]?.open || "06:00"} -{" "}
+              {turfDetails?.sports?.[0]?.timeSlots?.[0]?.close || turfDetails?.timeSlots?.[0]?.close || "22:00"}
             </Text>
           </View>
 
@@ -190,17 +194,23 @@ const VenueDetailsScreen = ({ route }) => {
             Amenities
           </Text>
           <View style={styles.chipRow}>
-            {turfDetails?.amenities?.map((key, index) => {
-              const amenity = amenityMap[key.toLowerCase()];
+            {turfDetails?.amenities?.map((item, index) => {
+              // Handle both string format (old) and object format (new)
+              const amenityKey = typeof item === 'string' ? item : item?.name;
+              if (!amenityKey) return null;
+
+              const amenity = amenityMap[amenityKey.toLowerCase()];
+              // If we have mapping, use it; otherwise create a default chip
+              const icon = amenity?.icon || shoeIcon;
+              const label = amenity?.label || amenityKey;
+
               return (
-                amenity && (
-                  <React.Fragment key={index}>
-                    {renderChip(amenity.icon, amenity.label, {
-                      color: "#49454F",
-                      fontFamily: "Inter_500Medium",
-                    })}
-                  </React.Fragment>
-                )
+                <React.Fragment key={index}>
+                  {renderChip(icon, label, {
+                    color: "#49454F",
+                    fontFamily: "Inter_500Medium",
+                  })}
+                </React.Fragment>
               );
             })}
           </View>
@@ -209,8 +219,12 @@ const VenueDetailsScreen = ({ route }) => {
             Rules & Policies
           </Text>
           <View style={styles.rulesList}>
-            {turfDetails?.rules?.map((rule, index) => {
-              const icon = ruleIconMap[rule.toLowerCase()] || clockIcon;
+            {turfDetails?.rules?.map((item, index) => {
+              // Handle both string format (old) and object format (new)
+              const ruleName = typeof item === 'string' ? item : item?.name;
+              if (!ruleName) return null;
+
+              const icon = ruleIconMap[ruleName.toLowerCase()] || clockIcon;
               return (
                 <View key={index} style={styles.ruleItem}>
                   <Image
@@ -218,7 +232,7 @@ const VenueDetailsScreen = ({ route }) => {
                     style={{ width: 20, height: 20, marginRight: 6 }}
                   />
                   <Text style={[styles.subTitle, { color: "#1E1E1E" }]}>
-                    {rule}
+                    {ruleName}
                   </Text>
                 </View>
               );

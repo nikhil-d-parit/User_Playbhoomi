@@ -8,12 +8,14 @@ import {
   ScrollView,
   Image,
   Alert,
+  Platform,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../src/services/authService';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearAuth } from '../src/store/slices/authSlice';
+import { persistor } from '../src/store';
 import Toast from 'react-native-toast-message';
 import { useNavigation } from "@react-navigation/native";
 import CommonStyles from "../components/CommonStyles";
@@ -94,57 +96,77 @@ const ProfileScreen = () => {
       <TouchableOpacity
         style={styles.logoutBtn}
         onPress={() => {
-          Alert.alert(
-            'Sign Out',
-            'Are you sure you want to sign out?',
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-              },
-              {
-                text: 'Sign Out',
-                onPress: async () => {
-                  try {
-                    await authService.logout();
+          console.log('Sign Out button pressed');
+          
+          const startSignOut = async () => {
+            try {
+              console.log('Starting sign out process...');
+              
+              // 1. Sign out from Firebase
+              await authService.logout().catch(err => console.error('Auth service logout error:', err));
 
-                    // Clear AsyncStorage items
-                    await AsyncStorage.multiRemove([
-                      'userToken',
-                      'firebaseToken',
-                      'userData'
-                    ]);
+              // 2. Clear local storage
+              console.log('Clearing local storage...');
+              await AsyncStorage.multiRemove([
+                'userToken',
+                'firebaseToken',
+                'userData'
+              ]).catch(err => console.error('AsyncStorage clear error:', err));
 
-                    dispatch(clearAuth());
+              // 3. Purge Redux persist (try catch because it can fail if storage is busy)
+              try {
+                console.log('Purging persistor...');
+                await persistor.purge();
+              } catch (purgeError) {
+                console.error('Persistor purge error (proceeding anyway):', purgeError);
+              }
 
-                    Toast.show({
-                      type: 'success',
-                      text1: 'Signed Out Successfully',
-                      position: 'bottom',
-                      visibilityTime: 2000,
-                    });
+              // 4. Clear Redux state
+              console.log('Clearing Redux state...');
+              dispatch(clearAuth());
 
-                    // Navigate to Login screen and reset navigation stack
-                    navigation.reset({
-                      index: 0,
-                      routes: [{ name: 'Login' }],
-                    });
-                  } catch (error) {
-                    console.error('Sign out error:', error);
-                    Toast.show({
-                      type: 'error',
-                      text1: 'Sign Out Failed',
-                      text2: 'Please try again',
-                      position: 'bottom',
-                      visibilityTime: 3000,
-                    });
-                  }
-                },
-                style: 'destructive',
-              },
-            ],
-            { cancelable: true }
-          );
+              Toast.show({
+                type: 'success',
+                text1: 'Signed Out Successfully',
+                position: 'bottom',
+                visibilityTime: 2000,
+              });
+
+              // 5. Navigate to Login
+              console.log('Redirecting to Login...');
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Terminal sign out error:', error);
+              Toast.show({
+                type: 'error',
+                text1: 'Sign Out Failed',
+                text2: error.message || 'Please try again',
+                position: 'bottom',
+                visibilityTime: 3000,
+              });
+            }
+          };
+
+          if (Platform.OS === 'web') {
+            console.log('Web platform detected, using window.confirm');
+            if (window.confirm('Are you sure you want to sign out?')) {
+              startSignOut();
+            }
+          } else {
+            console.log('Mobile platform detected, using Alert.alert');
+            Alert.alert(
+              'Sign Out',
+              'Are you sure you want to sign out?',
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => console.log('Sign out cancelled') },
+                { text: 'Sign Out', onPress: startSignOut, style: 'destructive' },
+              ],
+              { cancelable: true }
+            );
+          }
         }}
       >
         <Image source={signOut} style={{ width: 20, height: 20 }} />

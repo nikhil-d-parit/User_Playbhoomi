@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Linking,
+  Platform,
 } from "react-native";
 import { Text, Chip } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
@@ -81,6 +83,36 @@ const VenueDetailsScreen = ({ route }) => {
     fetchTurfDetails();
   }, [turfId]);
 
+  const openGoogleMaps = () => {
+    if (
+      !turfDetails?.vendorCoordinates?.lat ||
+      !turfDetails?.vendorCoordinates?.lng
+    )
+      return;
+
+    const { lat, lng } = turfDetails.vendorCoordinates;
+    const label = encodeURIComponent(turfDetails.title || "Venue");
+
+    const url =
+      Platform.OS === "ios"
+        ? `http://maps.apple.com/?ll=${lat},${lng}&q=${label}`
+        : `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+    Linking.openURL(url).catch(() =>
+      Alert.alert("Error", "Unable to open map"),
+    );
+  };
+
+  const formatTimeToAMPM = (time) => {
+  if (!time) return "";
+
+  const [hours, minutes] = time.split(":").map(Number);
+  const period = hours >= 12 ? "PM" : "AM";
+  const formattedHours = hours % 12 || 12;
+
+  return `${formattedHours}:${minutes.toString().padStart(2, "0")} ${period}`;
+};
+
   const renderChip = (iconSource, label, customTextStyle = {}) => (
     <Chip
       icon={() => (
@@ -141,13 +173,7 @@ const VenueDetailsScreen = ({ route }) => {
               source={locationIcon}
               style={{ width: 14, height: 14, marginRight: 6 }}
             />
-            <Text style={styles.subTitle}>
-              {/* Handle both string and object vendorLocation */}
-              {typeof turfDetails?.vendorLocation === 'string'
-                ? turfDetails.vendorLocation
-                : `${turfDetails?.vendorLocation?.address || ''}, ${turfDetails?.vendorLocation?.city || ''}`
-              } • {turfDetails?.address || ''}
-            </Text>
+            <Text style={styles.subTitle}>{turfDetails?.address || ""}</Text>
           </View>
 
           {/* Prices */}
@@ -162,7 +188,7 @@ const VenueDetailsScreen = ({ route }) => {
                   {
                     color: "#49454F",
                     fontFamily: "Inter_500Medium",
-                  }
+                  },
                 )}
               </React.Fragment>
             ))}
@@ -171,6 +197,7 @@ const VenueDetailsScreen = ({ route }) => {
           <Text variant="titleMedium" style={[styles.title, { marginTop: 20 }]}>
             Timings
           </Text>
+
           <View
             style={{
               flexDirection: "row",
@@ -183,11 +210,44 @@ const VenueDetailsScreen = ({ route }) => {
               style={{ width: 18, height: 18, marginRight: 6 }}
             />
             <Text style={styles.sportText}>
-              {/* Get timeSlots from sports array or root level */}
-              {turfDetails?.sports?.[0]?.timeSlots?.[0]?.open || turfDetails?.timeSlots?.[0]?.open || "06:00"} -{" "}
-              {turfDetails?.sports?.[0]?.timeSlots?.[0]?.close || turfDetails?.timeSlots?.[0]?.close || "22:00"}
+              {formatTimeToAMPM(
+                turfDetails?.sports?.[0]?.timeSlots?.[0]?.open ||
+                  turfDetails?.timeSlots?.[0]?.open,
+              )}
+              {" - "}
+              {formatTimeToAMPM(
+                turfDetails?.sports?.[0]?.timeSlots?.[0]?.close ||
+                  turfDetails?.timeSlots?.[0]?.close,
+              )}
             </Text>
           </View>
+          {/* Courts */}
+          {turfDetails?.sports?.[0]?.courts?.length > 0 && (
+            <>
+              <Text
+                variant="titleMedium"
+                style={[styles.title, { marginTop: 16 }]}
+              >
+                Courts
+              </Text>
+
+              <View style={{ marginTop: 8 }}>
+                {turfDetails.sports[0].courts.map((court, index) => (
+                  <Text
+                    key={index}
+                    style={{
+                      fontSize: 14,
+                      fontFamily: "Inter_400Regular",
+                      color: "#1E1E1E",
+                      marginBottom: 4,
+                    }}
+                  >
+                    • {court}
+                  </Text>
+                ))}
+              </View>
+            </>
+          )}
 
           {/* Amenities */}
           <Text variant="titleMedium" style={[styles.title, { marginTop: 20 }]}>
@@ -196,7 +256,7 @@ const VenueDetailsScreen = ({ route }) => {
           <View style={styles.chipRow}>
             {turfDetails?.amenities?.map((item, index) => {
               // Handle both string format (old) and object format (new)
-              const amenityKey = typeof item === 'string' ? item : item?.name;
+              const amenityKey = typeof item === "string" ? item : item?.name;
               if (!amenityKey) return null;
 
               const amenity = amenityMap[amenityKey.toLowerCase()];
@@ -221,7 +281,7 @@ const VenueDetailsScreen = ({ route }) => {
           <View style={styles.rulesList}>
             {turfDetails?.rules?.map((item, index) => {
               // Handle both string format (old) and object format (new)
-              const ruleName = typeof item === 'string' ? item : item?.name;
+              const ruleName = typeof item === "string" ? item : item?.name;
               if (!ruleName) return null;
 
               const icon = ruleIconMap[ruleName.toLowerCase()] || clockIcon;
@@ -252,47 +312,41 @@ const VenueDetailsScreen = ({ route }) => {
           </View>
 
           {/* Location */}
-          {/* <Text variant="titleMedium" style={[styles.title, { marginTop: 20 }]}>
+          <Text variant="titleMedium" style={[styles.title, { marginTop: 20 }]}>
             Location
           </Text>
-          <View style={{ alignItems: "center", marginTop: 10 }}>
-            {turfDetails?.vendorLocation?.lat &&
-            turfDetails?.vendorLocation?.lng ? (
-              <MapView
+
+          {turfDetails?.vendorCoordinates?.lat &&
+          turfDetails?.vendorCoordinates?.lng ? (
+            <TouchableOpacity
+              style={{ alignItems: "center", marginTop: 10 }}
+              activeOpacity={0.9}
+              onPress={openGoogleMaps}
+            >
+              <Image
+                source={require("../assets/mapImage.png")}
                 style={styles.map}
-                initialRegion={{
-                  latitude: turfDetails.vendorLocation.lat,
-                  longitude: turfDetails.vendorLocation.lng,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-              >
-                <Marker
-                  coordinate={{
-                    latitude: turfDetails.vendorLocation.lat,
-                    longitude: turfDetails.vendorLocation.lng,
-                  }}
-                  title={turfDetails.title}
-                  description={turfDetails.vendorLocation.address}
-                />
-              </MapView>
-            ) : (
-              <View
-                style={{
-                  width: screenWidth - 20,
-                  height: 200,
-                  borderRadius: 12,
-                  backgroundColor: "#F1F5F9",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ color: "#555", fontFamily: "Inter_500Medium" }}>
-                  Error at loading map...!!
-                </Text>
-              </View>
-            )}
-          </View> */}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ) : (
+            <View
+              style={{
+                width: screenWidth - 20,
+                height: 200,
+                borderRadius: 12,
+                backgroundColor: "#F1F5F9",
+                justifyContent: "center",
+                alignItems: "center",
+                marginTop: 10,
+              }}
+            >
+              <Text style={{ color: "#555", fontFamily: "Inter_500Medium" }}>
+                Location not available
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
             style={styles.gradientButton}
             onPress={() => navigation.navigate("BookScreen", { turfDetails })}
@@ -406,10 +460,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   map: {
-  width: screenWidth - 20,
-  height: 300,
-  borderRadius: 12,
-}
+    width: screenWidth - 20,
+    height: 300,
+    borderRadius: 12,
+  },
 });
 
 export default VenueDetailsScreen;

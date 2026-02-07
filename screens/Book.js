@@ -109,7 +109,7 @@ const BookingScreen = ({ route }) => {
         console.log("Fetching available slots:", body);
 
         const res = await api.post("/bookings/available-slots", body);
-        console.log("Available slots response:", res.data);
+       // console.log("Available slots response:", res.data);
 
         setAvailableSlots(res.data.availableSlots || []);
       } catch (err) {
@@ -172,7 +172,7 @@ const BookingScreen = ({ route }) => {
         date: formattedDate,
         timeSlots: hourlySlots,
       });
-
+    console.log("Slot statuses response:", res.data);
       if (res.data?.slotStatuses) {
         const statusMap = {};
         res.data.slotStatuses.forEach(({ slot, status, lockId, expiresAt }) => {
@@ -293,7 +293,7 @@ const BookingScreen = ({ route }) => {
       } else {
         // Still select the slot even if locking fails (graceful degradation)
         setSelectedSlots((prev) => [...prev, slot]);
-        console.log("Lock failed, proceeding without lock:", res.data.message);
+        //console.log("Lock failed, proceeding without lock:", res.data.message);
       }
     } catch (err) {
       // If 409 conflict, show alert but don't select
@@ -303,7 +303,7 @@ const BookingScreen = ({ route }) => {
       } else {
         // For other errors (like auth), still allow selection (graceful degradation)
         setSelectedSlots((prev) => [...prev, slot]);
-        console.log("Lock skipped due to error:", err.message);
+        //console.log("Lock skipped due to error:", err.message);
       }
     } finally {
       setLockingSlot(null);
@@ -352,14 +352,16 @@ const BookingScreen = ({ route }) => {
       turfId: turfDetails.turfId,
       sports: selectedSport.toLowerCase(),
       selectedSlots,
+      date: formattedDate
     };
+    //console.log("Booking request body:", body);
 
     try {
       setLoading(true);
-      console.log("Booking Summary request:", body);
+     console.log("Booking Summary request:", body);
 
       const res = await api.post("/bookings/summary", body);
-      console.log("Booking summary response:", res.data);
+      //console.log("Booking summary response:", res.data);
 
       // Navigate to checkout with lock info
       navigation.navigate("BookingStatus", {

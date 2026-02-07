@@ -21,6 +21,7 @@ import { updateProfile } from 'firebase/auth';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../src/services/apiService';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const EditProfileScreen = () => {
   const navigation = useNavigation();
@@ -205,7 +206,10 @@ const EditProfileScreen = () => {
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
@@ -222,8 +226,12 @@ const EditProfileScreen = () => {
             </View>
           )}
         </View>
-        <TouchableOpacity style={styles.changePhotoBtn} onPress={pickImage} disabled={uploading}>
-          <Ionicons name="camera" size={20} color="#004CE8" />
+        <TouchableOpacity
+          style={styles.changePhotoBtn}
+          onPress={pickImage}
+          disabled={uploading}
+        >
+          <Ionicons name="camera" size={20} color="#067B6A" />
           <Text style={styles.changePhotoText}>Change Photo</Text>
         </TouchableOpacity>
       </View>
@@ -269,15 +277,22 @@ const EditProfileScreen = () => {
 
       {/* Save Button */}
       <TouchableOpacity
-        style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+        style={[styles.gradientButton, loading && { opacity: 0.7 }]}
         onPress={handleSave}
         disabled={loading}
       >
-        {loading ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.saveButtonText}>Save Changes</Text>
-        )}
+        <LinearGradient
+          colors={["#00C247", "#004CE8"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1.5 }}
+          style={styles.gradientButtonBg}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          )}
+        </LinearGradient>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -321,7 +336,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: '#004CE8',
+    borderColor: '#067B6A',
   },
   uploadingOverlay: {
     position: 'absolute',
@@ -341,13 +356,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#004CE8',
+    borderColor: '#067B6A',
   },
   changePhotoText: {
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '500',
-    color: '#004CE8',
+    color: '#067B6A',
   },
   formSection: {
     paddingHorizontal: 20,
@@ -382,7 +397,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   saveButton: {
-    backgroundColor: '#004CE8',
+    backgroundColor: '#067B6A',
     marginHorizontal: 20,
     marginVertical: 30,
     paddingVertical: 16,
@@ -396,6 +411,27 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+   gradientButton: {
+    marginTop: 10,
+    width: "80%",
+    borderRadius: 8,
+    overflow: "hidden",
+    alignSelf: "center",
+  },
+  gradientButtonBg: {
+    width: "100%",
+    height: 48,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+  },
+  gradientButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
   },
 });
 

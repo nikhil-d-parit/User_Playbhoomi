@@ -147,5 +147,103 @@ export const authService = {
     } catch (error) {
       throw error;
     }
+  },
+
+  // Phone authentication - Send OTP
+  async sendOTP(phoneNumber) {
+    try {
+      const { signInWithPhoneNumber, RecaptchaVerifier } = await import('firebase/auth');
+      const { auth } = await import('../config/firebase');
+
+      // Format phone number to E.164 format (+91XXXXXXXXXX)
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+
+      // Create reCAPTCHA verifier for web
+      // Check if we're in a web environment
+      if (typeof window !== 'undefined') {
+        // Clear existing verifier completely
+        if (window.recaptchaVerifier) {
+          try {
+            window.recaptchaVerifier.clear();
+          } catch (e) {
+            console.log('Error clearing recaptcha:', e);
+          }
+          window.recaptchaVerifier = null;
+        }
+
+        // Clear the DOM element to ensure clean state
+        const recaptchaContainer = document.getElementById('recaptcha-container');
+        if (recaptchaContainer) {
+          recaptchaContainer.innerHTML = '';
+        }
+
+        // Create new RecaptchaVerifier - don't call render(), it will be called automatically
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: (response) => {
+            console.log('reCAPTCHA solved', response);
+          },
+          'expired-callback': () => {
+            console.log('reCAPTCHA expired');
+            if (window.recaptchaVerifier) {
+              try {
+                window.recaptchaVerifier.clear();
+              } catch (e) {
+                console.log('Error in expired callback:', e);
+              }
+            }
+            window.recaptchaVerifier = null;
+          }
+        });
+      }
+
+      const confirmationResult = await signInWithPhoneNumber(
+        auth,
+        formattedPhone,
+        window.recaptchaVerifier
+      );
+
+      return {
+        verificationId: confirmationResult.verificationId,
+        confirmationResult
+      };
+    } catch (error) {
+      console.error('Send OTP error:', error);
+      // Clear recaptcha on error
+      if (typeof window !== 'undefined' && window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log('Error clearing recaptcha on error:', e);
+        }
+        window.recaptchaVerifier = null;
+      }
+      throw error;
+    }
+  },
+
+  // Phone authentication - Verify OTP
+  async verifyOTP(confirmationResult, code) {
+    try {
+      const userCredential = await confirmationResult.confirm(code);
+      const firebaseToken = await userCredential.user.getIdToken();
+      
+      // Register/login with backend using phone
+      const response = await api.post('/users/login', {
+        idToken: firebaseToken
+      });
+      
+      return {
+        user: {
+          phone: userCredential.user.phoneNumber,
+          uid: userCredential.user.uid,
+        },
+        token: response.data.token,
+        firebaseToken
+      };
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      throw error;
+    }
   }
 };

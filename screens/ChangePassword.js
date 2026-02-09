@@ -183,7 +183,7 @@ const ChangePasswordScreen = () => {
   };
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 30 }}
     >
@@ -192,34 +192,49 @@ const ChangePasswordScreen = () => {
         <Text style={styles.requireTitle}>Password Requirements:</Text>
 
         <View style={styles.requireItem}>
-          <Ionicons 
-            name={validation.minLength ? "checkmark-circle" : "close-circle"} 
-            size={16} 
-            color={validation.minLength ? "#20C997" : "#999"} 
+          <Ionicons
+            name={validation.minLength ? "checkmark-circle" : "close-circle"}
+            size={16}
+            color={validation.minLength ? "#20C997" : "#999"}
           />
-          <Text style={[styles.requireText, validation.minLength && styles.requireTextMet]}>
+          <Text
+            style={[
+              styles.requireText,
+              validation.minLength && styles.requireTextMet,
+            ]}
+          >
             At least 8 characters
           </Text>
         </View>
 
         <View style={styles.requireItem}>
-          <Ionicons 
-            name={validation.hasUppercase ? "checkmark-circle" : "close-circle"} 
-            size={16} 
-            color={validation.hasUppercase ? "#20C997" : "#999"} 
+          <Ionicons
+            name={validation.hasUppercase ? "checkmark-circle" : "close-circle"}
+            size={16}
+            color={validation.hasUppercase ? "#20C997" : "#999"}
           />
-          <Text style={[styles.requireText, validation.hasUppercase && styles.requireTextMet]}>
+          <Text
+            style={[
+              styles.requireText,
+              validation.hasUppercase && styles.requireTextMet,
+            ]}
+          >
             At least one uppercase letter
           </Text>
         </View>
 
         <View style={styles.requireItem}>
-          <Ionicons 
-            name={validation.hasNumber ? "checkmark-circle" : "close-circle"} 
-            size={16} 
-            color={validation.hasNumber ? "#20C997" : "#999"} 
+          <Ionicons
+            name={validation.hasNumber ? "checkmark-circle" : "close-circle"}
+            size={16}
+            color={validation.hasNumber ? "#20C997" : "#999"}
           />
-          <Text style={[styles.requireText, validation.hasNumber && styles.requireTextMet]}>
+          <Text
+            style={[
+              styles.requireText,
+              validation.hasNumber && styles.requireTextMet,
+            ]}
+          >
             One number
           </Text>
         </View>
@@ -231,7 +246,7 @@ const ChangePasswordScreen = () => {
           <TextInput
             style={[
               styles.input,
-              currentPassword && !currentPassword ? styles.inputError : null
+              currentPassword && !currentPassword ? styles.inputError : null,
             ]}
             placeholder="Current password"
             secureTextEntry={!showCurrentPassword}
@@ -239,14 +254,14 @@ const ChangePasswordScreen = () => {
             value={currentPassword}
             onChangeText={setCurrentPassword}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.eyeIcon}
             onPress={() => setShowCurrentPassword(!showCurrentPassword)}
           >
-            <Ionicons 
-              name={showCurrentPassword ? "eye-off" : "eye"} 
-              size={20} 
-              color="#999" 
+            <Ionicons
+              name={showCurrentPassword ? "eye-off" : "eye"}
+              size={20}
+              color="#999"
             />
           </TouchableOpacity>
         </View>
@@ -255,7 +270,7 @@ const ChangePasswordScreen = () => {
           <TextInput
             style={[
               styles.input,
-              newPassword && !validation.isValid ? styles.inputError : null
+              newPassword && !validation.isValid ? styles.inputError : null,
             ]}
             placeholder="New password"
             secureTextEntry={!showNewPassword}
@@ -263,22 +278,22 @@ const ChangePasswordScreen = () => {
             value={newPassword}
             onChangeText={setNewPassword}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.eyeIcon}
             onPress={() => setShowNewPassword(!showNewPassword)}
           >
-            <Ionicons 
-              name={showNewPassword ? "eye-off" : "eye"} 
-              size={20} 
-              color="#999" 
+            <Ionicons
+              name={showNewPassword ? "eye-off" : "eye"}
+              size={20}
+              color="#999"
             />
           </TouchableOpacity>
         </View>
         {newPassword && !validation.isValid && (
           <Text style={styles.errorText}>
-            Password must have {!validation.minLength && '8+ characters, '}
-            {!validation.hasUppercase && 'uppercase letter, '}
-            {!validation.hasNumber && 'number'}
+            Password must have {!validation.minLength && "8+ characters, "}
+            {!validation.hasUppercase && "uppercase letter, "}
+            {!validation.hasNumber && "number"}
           </Text>
         )}
 
@@ -286,7 +301,9 @@ const ChangePasswordScreen = () => {
           <TextInput
             style={[
               styles.input,
-              confirmPassword && newPassword !== confirmPassword ? styles.inputError : null
+              confirmPassword && newPassword !== confirmPassword
+                ? styles.inputError
+                : null,
             ]}
             placeholder="Confirm password"
             secureTextEntry={!showConfirmPassword}
@@ -294,14 +311,14 @@ const ChangePasswordScreen = () => {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.eyeIcon}
             onPress={() => setShowConfirmPassword(!showConfirmPassword)}
           >
-            <Ionicons 
-              name={showConfirmPassword ? "eye-off" : "eye"} 
-              size={20} 
-              color="#999" 
+            <Ionicons
+              name={showConfirmPassword ? "eye-off" : "eye"}
+              size={20}
+              color="#999"
             />
           </TouchableOpacity>
         </View>
@@ -311,18 +328,20 @@ const ChangePasswordScreen = () => {
       </View>
 
       {/* Update Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.buttonWrapper}
         onPress={() => {
-          console.log('Button clicked!');
+          console.log("Button clicked!");
           handleChangePassword();
         }}
         disabled={loading}
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={["#20C997", "#009F7F"]}
-          style={styles.button}
+          colors={["#00C247", "#004CE8"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1.5 }}
+          style={styles.gradientButtonBg}
         >
           {loading ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -418,6 +437,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
     color: "#fff",
+  },
+   gradientButtonBg: {
+    width: "100%",
+    height: 48,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
   },
 });
 

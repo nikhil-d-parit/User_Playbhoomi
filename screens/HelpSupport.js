@@ -129,7 +129,7 @@ const HelpSupportScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#004CE8" />
+        <ActivityIndicator size="large" color="#00C247" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -152,7 +152,7 @@ const HelpSupportScreen = () => {
             onPress={() => handleContactAction(option)}
           >
             <View style={styles.iconContainer}>
-              <Ionicons name={option.icon} size={24} color="#004CE8" />
+              <Ionicons name={option.icon} size={24} color="#00C247" />
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactTitle}>{option.title}</Text>
@@ -188,7 +188,7 @@ const HelpSupportScreen = () => {
 
       {/* Support Hours */}
       <View style={styles.infoCard}>
-        <Ionicons name="time-outline" size={24} color="#004CE8" />
+        <Ionicons name="time-outline" size={24} color="#00C247" />
         <View style={styles.infoContent}>
           <Text style={styles.infoTitle}>Support Hours</Text>
           <Text style={styles.infoText}>{displayContent.supportHours}</Text>
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#004CE8",
+    borderColor: "#00C247",
   },
   infoContent: {
     marginLeft: 12,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ScrollView,
   Text,
@@ -39,8 +39,15 @@ import badmintonIconWhite from "../assets/icons/white/badminton_white.png";
 import basketballIconGrad from "../assets/icons/gradient/icon-basketball-gradient.png";
 import basketballIconWhite from "../assets/icons/white/icon-basketball-white.png";
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";
+import { log } from "firebase/firestore/pipelines";
 
 const { width } = Dimensions.get("window");
+
+// Fallback test coordinates used when device location isn't available
+const TEST_COORDS = {
+  latitude: 23.239172,
+  longitude: 87.859145,
+};
 
 // Helper function to get minimum slot price and its discounted price from venue sports
 const getMinPricing = (venue) => {
@@ -82,11 +89,12 @@ const HomeScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [noResults, setNoResults] = useState(false);
   const [isFiltered, setIsFiltered] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debounceRef = useRef(null);
   const navigation = useNavigation();
   
   // Get user data from Redux store
   const reduxUser = useSelector((state) => state.auth.user);
-
   const getLocationDetails = async (latitude, longitude) => {
     try {
       const response = await Location.reverseGeocodeAsync({
@@ -144,21 +152,21 @@ const HomeScreen = () => {
    try {
      setIsLoading(true);
      setNoResults(false);
-     console.log('🔍 Fetching nearby venues with coords:', { latitude, longitude });
+     //console.log('🔍 Fetching nearby venues with coords:', { latitude, longitude });
      const response = await api.post("/users/nearby-venues", {
        latitude,
        longitude,
      });
      const venues = response.data || [];
-     console.log('📍 Backend returned venues:', venues.length, 'venues');
+    // console.log('📍 Backend returned venues:', venues.length, 'venues');
      if (venues.length > 0) {
-       console.log('📍 First venue:', venues[0]);
+       //console.log('📍 First venue:', venues[0]);
      }
      const activeVenues = venues.filter((venue) => venue.deleted !== true);
-     console.log(
-       "Filtered nearby venues:",
-       JSON.stringify(activeVenues)
-     );
+    //  console.log(
+    //    "Filtered nearby venues:",
+    //    JSON.stringify(activeVenues)
+    //  );
 
      setVenueData(activeVenues);
      setNoResults(activeVenues.length === 0);
@@ -184,8 +192,28 @@ const HomeScreen = () => {
       });
       console.log('📍 Search returned:', response.data?.length || 0, 'turfs');
       console.log('Search turfs data:', JSON.stringify(response.data, null, 2));
-      setVenueData(response.data || []);
-      setNoResults(response.data?.length === 0);
+
+      // Perform client-side filtering to ensure searching by title, address, or vendorName
+      const results = response.data || [];
+      const kw = (keyword || "").toString().trim().toLowerCase();
+
+      if (kw) {
+        const filtered = results.filter((v) => {
+          const title = (v.title || "").toString().toLowerCase();
+          const address = (v.address || "").toString().toLowerCase();
+          const vendor = (v.vendorName || v.vendor || "").toString().toLowerCase();
+          return (
+            title.includes(kw) ||
+            address.includes(kw) ||
+            vendor.includes(kw)
+          );
+        });
+        setVenueData(filtered);
+        setNoResults(filtered.length === 0);
+      } else {
+        setVenueData(results);
+        setNoResults(results.length === 0);
+      }
     } catch (error) {
       console.error('Error searching turfs:', error);
       console.error('Error details:', error.response?.data);
@@ -226,16 +254,10 @@ const HomeScreen = () => {
 //         if (locationResult?.coords) {
 //           fetchNearbyVenues(locationResult.coords.latitude, locationResult.coords.longitude);
 //         }
-        // Use hardcoded coordinates for testing
-        const testCoords = {
-          latitude: 23.239172,
-          longitude: 87.859145
-        };
-        
-        // Fetch nearby venues with test coordinates
-        fetchNearbyVenues(testCoords.latitude, testCoords.longitude);
-        
-        // Still get location for display purposes
+        // Fetch nearby venues with fallback test coordinates initially
+        fetchNearbyVenues(TEST_COORDS.latitude, TEST_COORDS.longitude);
+
+        // Still get device location for display purposes and later searches
         getCurrentLocation();
       } catch (error) {
         console.error('Error initializing data:', error);
@@ -244,6 +266,71 @@ const HomeScreen = () => {
 
     initializeData();
   }, [reduxUser]); // Re-run when Redux user changes
+
+  // Handle search input changes with debounce
+  const handleSearchInputChange = (text) => {
+    setSearchQuery(text);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      performSearch(text);
+    }, 600);
+  };
+
+  // Perform a search. Accepts formats like "name" or "name, location"
+  const performSearch = async (text) => {
+    const trimmed = (text || "").trim();
+    if (!trimmed) {
+      // empty search -> show nearby venues
+      fetchNearbyVenues(TEST_COORDS.latitude, TEST_COORDS.longitude);
+      return;
+    }
+
+    setIsLoading(true);
+    setNoResults(false);
+
+    try {
+      let keyword = trimmed;
+      let lat = null;
+      let longitude = null;
+
+      const parts = trimmed.split(",");
+      if (parts.length > 1) {
+        keyword = parts[0].trim();
+        const locStr = parts.slice(1).join(",").trim();
+        if (locStr) {
+          try {
+            const geocoded = await Location.geocodeAsync(locStr);
+            if (geocoded && geocoded[0]) {
+              lat = geocoded[0].latitude;
+              longitude = geocoded[0].longitude;
+            }
+          } catch (gErr) {
+            console.warn("Geocode failed for", locStr, gErr);
+          }
+        }
+      }
+
+      if (lat == null) {
+        if (location?.coords) {
+          lat = location.coords.latitude;
+          longitude = location.coords.longitude;
+        } else {
+          lat = TEST_COORDS.latitude;
+          longitude = TEST_COORDS.longitude;
+        }
+      }
+
+      await searchTurfs(keyword, lat, longitude);
+    } catch (err) {
+      console.error("performSearch error", err);
+      setVenueData([]);
+      setNoResults(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const sports = [
     {
@@ -321,14 +408,20 @@ const HomeScreen = () => {
         {/* Search Row */}
         <View style={styles.searchRow}>
           <View style={styles.searchInputContainer}>
-            <Image
-              source={searchIcon}
-              style={[styles.searchIcon, { width: 16, height: 16 }]}
-            />
+            <TouchableOpacity onPress={() => performSearch(searchQuery)}>
+              <Image
+                source={searchIcon}
+                style={[styles.searchIcon, { width: 16, height: 16 }]}
+              />
+            </TouchableOpacity>
             <TextInput
               placeholder="Search grounds, sports..."
               placeholderTextColor="#757575"
               style={styles.searchTextInput}
+              value={searchQuery}
+              onChangeText={handleSearchInputChange}
+              onSubmitEditing={() => performSearch(searchQuery)}
+              returnKeyType="search"
             />
           </View>
 

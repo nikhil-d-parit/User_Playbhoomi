@@ -7,13 +7,11 @@ import {
   StyleSheet,
   Image,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import api from "../src/services/apiService";
-
+import { useNavigation } from "@react-navigation/native";
+import RazorpayCheckout from "react-native-razorpay";
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";
 import turfImage from "../assets/TURF1.jpeg";
 import clockIcon from "../assets/icons/gradient/icon-timelapse-gradient.png";
@@ -63,67 +61,67 @@ const BookingStatus = () => {
   };
 
   // Handle payment
-  const handlePayment = async () => {
-    if (!bookingSummary) {
-      Alert.alert("Error", "Booking information is missing");
-      return;
-    }
+  // const handlePayment = async () => {
+  //   if (!bookingSummary) {
+  //     Alert.alert("Error", "Booking information is missing");
+  //     return;
+  //   }
 
-    setProcessing(true);
+  //   setProcessing(true);
 
-    try {
-      // Step 1: Confirm all locks
-      if (userLocks.length > 0) {
-        await Promise.all(
-          userLocks.map(async ({ lockId }) => {
-            try {
-              await api.patch(`/slots/confirm/${lockId}`);
-            } catch (err) {
-              console.error("Error confirming lock:", err);
-            }
-          })
-        );
-      }
+  //   try {
+  //     // Step 1: Confirm all locks
+  //     if (userLocks.length > 0) {
+  //       await Promise.all(
+  //         userLocks.map(async ({ lockId }) => {
+  //           try {
+  //             await api.patch(`/slots/confirm/${lockId}`);
+  //           } catch (err) {
+  //             console.error("Error confirming lock:", err);
+  //           }
+  //         })
+  //       );
+  //     }
 
-      // Step 2: Create booking for each slot
-      const bookingPromises = (bookingSummary.selectedSlots || []).map(async (timeSlot) => {
-        const bookingData = {
-          orderId: `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          amount: pricePerSlot,
-          turfId: bookingSummary.turfId,
-          vendorId: bookingSummary.vendorId || "",
-          timeSlot,
-          date,
-          sports: selectedSport.toLowerCase(),
-        };
+  //     // Step 2: Create booking for each slot
+  //     const bookingPromises = (bookingSummary.selectedSlots || []).map(async (timeSlot) => {
+  //       const bookingData = {
+  //         orderId: `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  //         amount: pricePerSlot,
+  //         turfId: bookingSummary.turfId,
+  //         vendorId: bookingSummary.vendorId || "",
+  //         timeSlot,
+  //         date,
+  //         sports: selectedSport.toLowerCase(),
+  //       };
 
-        return api.post("/bookings/mock-payment-success", bookingData);
-      });
+  //       return api.post("/bookings/mock-payment-success", bookingData);
+  //     });
 
-      await Promise.all(bookingPromises);
+  //     await Promise.all(bookingPromises);
 
-      // Step 3: Show success and navigate
-      Alert.alert(
-        "Booking Confirmed!",
-        `Your booking at ${bookingSummary.turfTitle || "the turf"} has been confirmed.`,
-        [
-          {
-            text: "View My Bookings",
-            onPress: () => navigation.navigate("Bookings"),
-          },
-          {
-            text: "Go Home",
-            onPress: () => navigation.navigate("Home"),
-          },
-        ]
-      );
-    } catch (err) {
-      console.error("Payment error:", err.response?.data || err.message);
-      Alert.alert("Payment Failed", "There was an error processing your payment. Please try again.");
-    } finally {
-      setProcessing(false);
-    }
-  };
+  //     // Step 3: Show success and navigate
+  //     Alert.alert(
+  //       "Booking Confirmed!",
+  //       `Your booking at ${bookingSummary.turfTitle || "the turf"} has been confirmed.`,
+  //       [
+  //         {
+  //           text: "View My Bookings",
+  //           onPress: () => navigation.navigate("Bookings"),
+  //         },
+  //         {
+  //           text: "Go Home",
+  //           onPress: () => navigation.navigate("Home"),
+  //         },
+  //       ]
+  //     );
+  //   } catch (err) {
+  //     console.error("Payment error:", err.response?.data || err.message);
+  //     Alert.alert("Payment Failed", "There was an error processing your payment. Please try again.");
+  //   } finally {
+  //     setProcessing(false);
+  //   }
+  // };
 
   // Cleanup locks if user goes back without completing payment
   useEffect(() => {
@@ -145,6 +143,54 @@ const BookingStatus = () => {
 
     return unsubscribe;
   }, [navigation, userLocks, processing]);
+
+  const handlePayment = () => {
+    const options = {
+      description: "Booking - Sports Arena Complex",
+      image: "https://i.pravatar.cc/100?img=1",
+      currency: "INR",
+      key: "rzp_test_S3FeXSaaVbsCC4",
+      amount: 51750, // ✅ MUST be number (paise)
+      name: "PlayBhoomi",
+
+      // ❌ Do NOT send order_id unless from backend
+      // order_id: "order_xxxxxx",
+
+      prefill: {
+        email: "nikhilparit@gmail.com",
+        contact: "8668523316",
+        name: "User",
+      },
+      theme: { color: "#00C247" },
+    };
+
+    RazorpayCheckout.open(options)
+      .then((data) => {
+        if (data?.razorpay_payment_id) {
+          Alert.alert(
+            "Payment Successful",
+            `Payment ID: ${data.razorpay_payment_id}`
+          );
+
+          // navigation.navigate("Home");
+        } else {
+          Alert.alert("Payment Failed", "Invalid payment response");
+        }
+      })
+      .catch((error) => {
+        console.log(
+          "Razorpay Error:",
+          JSON.stringify(error, null, 2)
+        );
+
+        Alert.alert(
+          "Payment Failed",
+          error?.description ||
+            error?.message ||
+            "Payment cancelled or failed"
+        );
+      });
+  };
 
   return (
     <View style={styles.screen}>

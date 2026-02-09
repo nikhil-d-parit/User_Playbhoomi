@@ -81,7 +81,7 @@ const ProfileScreen = () => {
           <Image source={rightIcon} style={{ width: 20, height: 20 }} />
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        {/* <TouchableOpacity 
           style={styles.menuItem}
           onPress={() => navigation.navigate('TermsConditionsScreen')}
         >
@@ -89,7 +89,7 @@ const ProfileScreen = () => {
 
           <Text style={styles.menuText}>Terms & Conditions</Text>
           <Image source={rightIcon} style={{ width: 20, height: 20 }} />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       {/* Sign Out */}

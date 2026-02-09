@@ -71,12 +71,12 @@ export const authService = {
     const response = await api.post('/users/login', {
       idToken: firebaseToken
     });
-    
     return {
       user: {
         email: userCredential.user.email,
         name: userCredential.user.displayName,
         uid: userCredential.user.uid,
+        photoURL: userCredential.user.photoURL
       },
       token: response.data.token, // API JWT token
       firebaseToken // Firebase token

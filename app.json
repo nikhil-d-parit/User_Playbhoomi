@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/App_Icon_128x128.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -36,12 +36,14 @@
     },
     "plugins": [
       "expo-maps",
-      "expo-asset"
+      "expo-asset",
+      "expo-font"
     ],
     "extra": {
       "eas": {
-        "projectId": "55564dc7-b894-4d65-b228-2424363d2887"
+        "projectId": "2afad45e-a1f2-413f-9cdd-d9692d0fd863"
       }
-    }
+    },
+    "owner": "atindra"
   }
 }

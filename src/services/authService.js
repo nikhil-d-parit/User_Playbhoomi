@@ -114,7 +114,7 @@ export const authService = {
   async updateProfile(userData) {
   const currentUser = auth.currentUser;
     if (currentUser) {
-      await currentUser.updateProfile(userData);
+      await updateProfile(currentUser, userData);
     }
   },
 

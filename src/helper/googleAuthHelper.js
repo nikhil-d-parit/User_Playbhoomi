@@ -17,7 +17,7 @@ export const useGoogleLogin = () => {
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     expoClientId: config.GOOGLE_EXPO_CLIENT_ID,
-    androidClientId: config.GOOGLE_WEB_CLIENT_ID,
+    androidClientId: config.GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: config.GOOGLE_IOS_CLIENT_ID,
     webClientId: config.GOOGLE_WEB_CLIENT_ID,
     responseType: 'id_token',

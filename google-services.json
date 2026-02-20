@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "471444338050",
+    "firebase_url": "https://turf-ad78c-default-rtdb.firebaseio.com",
+    "project_id": "turf-ad78c",
+    "storage_bucket": "turf-ad78c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:471444338050:android:68c3e00a4b5a27df1d4b9b",
+        "android_client_info": {
+          "package_name": "com.nikhil.parit.Krida"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "471444338050-kclj8rc1dg27os1ofifj0qncrte509b4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0wHllC3IaOv274fth7yN5SLOEPyacqeg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "471444338050-kclj8rc1dg27os1ofifj0qncrte509b4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

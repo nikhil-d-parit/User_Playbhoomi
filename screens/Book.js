@@ -106,7 +106,7 @@ const BookingScreen = ({ route }) => {
           date: formattedDate,
           sports: selectedSport.toLowerCase(),
         };
-        console.log("Fetching available slots:", body);
+        // console.log("Fetching available slots:", body);
 
         const res = await api.post("/bookings/available-slots", body);
        // console.log("Available slots response:", res.data);
@@ -153,12 +153,12 @@ const BookingScreen = ({ route }) => {
     generateHourlySlots(timeRange.open || "06:00", timeRange.close || "22:00", slotDuration)
   );
 
-  console.log("Generating slots:", {
-    sport: selectedSport,
-    slotDuration,
-    timeSlots: timeSlotsToUse,
-    generatedSlots: hourlySlots,
-  });
+  // console.log("Generating slots:", {
+  //   sport: selectedSport,
+  //   slotDuration,
+  //   timeSlots: timeSlotsToUse,
+  //   generatedSlots: hourlySlots,
+  // });
 
   // Fetch slot statuses with polling (optional - won't block UI if it fails)
   const fetchSlotStatuses = useCallback(async () => {
@@ -172,7 +172,7 @@ const BookingScreen = ({ route }) => {
         date: formattedDate,
         timeSlots: hourlySlots,
       });
-    console.log("Slot statuses response:", res.data);
+    // console.log("Slot statuses response:", res.data);
       if (res.data?.slotStatuses) {
         const statusMap = {};
         res.data.slotStatuses.forEach(({ slot, status, lockId, expiresAt }) => {
@@ -194,7 +194,7 @@ const BookingScreen = ({ route }) => {
     fetchSlotStatuses();
 
     // Poll every 5 seconds
-    pollingIntervalRef.current = setInterval(fetchSlotStatuses, 5000);
+    pollingIntervalRef.current = setInterval(fetchSlotStatuses, 30000);
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -358,7 +358,7 @@ const BookingScreen = ({ route }) => {
 
     try {
       setLoading(true);
-     console.log("Booking Summary request:", body);
+     // console.log("Booking Summary request:", body);
 
       const res = await api.post("/bookings/summary", body);
       //console.log("Booking summary response:", res.data);

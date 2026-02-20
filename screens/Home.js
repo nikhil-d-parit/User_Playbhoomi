@@ -39,7 +39,6 @@ import badmintonIconWhite from "../assets/icons/white/badminton_white.png";
 import basketballIconGrad from "../assets/icons/gradient/icon-basketball-gradient.png";
 import basketballIconWhite from "../assets/icons/white/icon-basketball-white.png";
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";
-import { log } from "firebase/firestore/pipelines";
 
 const { width } = Dimensions.get("window");
 

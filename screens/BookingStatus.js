@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,11 +7,23 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Platform,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
-import RazorpayCheckout from "react-native-razorpay";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSelector } from "react-redux";
+import { selectUser } from "../src/store/slices/authSlice";
+// Conditionally import Razorpay only on native platforms
+let RazorpayCheckout = null;
+if (Platform.OS !== 'web') {
+  try {
+    RazorpayCheckout = require("react-native-razorpay").default;
+  } catch (e) {
+    console.warn("Razorpay not available:", e.message);
+  }
+}
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";
 import turfImage from "../assets/TURF1.jpeg";
 import clockIcon from "../assets/icons/gradient/icon-timelapse-gradient.png";
@@ -19,6 +31,7 @@ import calenderIcon from "../assets/icons/gradient/icon-calendar-gradient.png";
 import cricketGradBat from "../assets/icons/gradient/icon-cricket-gradient.png";
 import footBallIconGrad from "../assets/icons/gradient/icon-football-gradient.png";
 import tennisIconGrad from "../assets/icons/gradient/icon-tennis-gradient.png";
+import api from "../src/services/apiService";
 
 const BookingStatus = () => {
   const navigation = useNavigation();
@@ -27,7 +40,68 @@ const BookingStatus = () => {
   // Get data from navigation params
   const { bookingSummary, userLocks = [], date } = route.params || {};
 
+  const currentUser = useSelector(selectUser);
+
   const [processing, setProcessing] = useState(false);
+  const [bookingConfirmed, setBookingConfirmed] = useState(false);
+  const [lockSecondsLeft, setLockSecondsLeft] = useState(null);
+  const lockTimerRef = useRef(null);
+  const autoExtendTriggeredRef = useRef(false);
+
+  // Lock countdown timer + auto-extend
+  useEffect(() => {
+    if (!userLocks || userLocks.length === 0 || bookingConfirmed) return;
+
+    // Find earliest lock expiry from the locks passed via navigation
+    // Locks have expiresAt from the backend response
+    const expiryTimes = userLocks
+      .map((lock) => lock.expiresAt ? new Date(lock.expiresAt).getTime() : null)
+      .filter(Boolean);
+
+    if (expiryTimes.length === 0) {
+      // Fallback: assume 10 min from now if no expiresAt provided
+      const fallback = Date.now() + 10 * 60 * 1000;
+      expiryTimes.push(fallback);
+    }
+
+    const earliestExpiry = Math.min(...expiryTimes);
+
+    lockTimerRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((earliestExpiry - Date.now()) / 1000));
+      setLockSecondsLeft(remaining);
+
+      // Auto-extend locks when less than 2 minutes remaining
+      if (remaining > 0 && remaining <= 120 && !autoExtendTriggeredRef.current && !processing) {
+        autoExtendTriggeredRef.current = true;
+        // Re-call lock endpoint for each lock to extend
+        userLocks.forEach(async (lock) => {
+          try {
+            await api.post("/slots/lock", {
+              vendorId: bookingSummary?.vendorId,
+              turfId: bookingSummary?.turfId,
+              sport: (bookingSummary?.selectedSport || "").toLowerCase(),
+              date,
+              timeSlot: lock.slot,
+            });
+          } catch (err) {
+            console.warn("Auto-extend lock failed:", err.message);
+          }
+        });
+      }
+    }, 1000);
+
+    return () => {
+      if (lockTimerRef.current) clearInterval(lockTimerRef.current);
+    };
+  }, [userLocks, bookingConfirmed, processing, bookingSummary, date]);
+
+  // Format seconds to MM:SS
+  const formatCountdown = useCallback((seconds) => {
+    if (seconds === null) return "";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }, []);
 
   // Sport icons mapping
   const sportIcons = {
@@ -126,6 +200,10 @@ const BookingStatus = () => {
   // Cleanup locks if user goes back without completing payment
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      if (bookingConfirmed) {
+        return;
+      }
+
       if (processing) {
         e.preventDefault();
         return;
@@ -142,54 +220,193 @@ const BookingStatus = () => {
     });
 
     return unsubscribe;
-  }, [navigation, userLocks, processing]);
+  }, [navigation, userLocks, processing, bookingConfirmed]);
 
-  const handlePayment = () => {
-    const options = {
-      description: "Booking - Sports Arena Complex",
-      image: "https://i.pravatar.cc/100?img=1",
-      currency: "INR",
-      key: "rzp_test_S3FeXSaaVbsCC4",
-      amount: 51750, // ✅ MUST be number (paise)
-      name: "PlayBhoomi",
+  const buildBookingDetails = () => ({
+    vendorId: bookingSummary?.vendorId,
+    turfId: bookingSummary?.turfId,
+    sports: selectedSport.toLowerCase(),
+    selectedSlots: bookingSummary?.selectedSlots || [],
+    date,
+    finalAmount,
+  });
 
-      // ❌ Do NOT send order_id unless from backend
-      // order_id: "order_xxxxxx",
+  const verifyPaymentAndCreateBooking = async (paymentResponse, fallbackOrderId) => {
+    const verifyRes = await api.post("/bookings/verify-payment", {
+      razorpay_payment_id: paymentResponse?.razorpay_payment_id,
+      razorpay_order_id: paymentResponse?.razorpay_order_id || fallbackOrderId,
+      razorpay_signature: paymentResponse?.razorpay_signature,
+      bookingDetails: buildBookingDetails(),
+      userLocks,
+    });
 
-      prefill: {
-        email: "nikhilparit@gmail.com",
-        contact: "8668523316",
-        name: "User",
+    setBookingConfirmed(true);
+    setProcessing(false);
+
+    const paymentId = paymentResponse?.razorpay_payment_id;
+    const bookingId = verifyRes?.data?.bookingId;
+    const message = `Booking Confirmed!\n\nPayment ID: ${paymentId}\nBooking ID: ${bookingId}`;
+
+    if (Platform.OS === "web") {
+      window.alert(message);
+      navigation.navigate("Home");
+      return;
+    }
+
+    Alert.alert("Booking Confirmed", message, [
+      {
+        text: "Go to Home",
+        onPress: () => navigation.navigate("Home"),
       },
-      theme: { color: "#00C247" },
-    };
+    ]);
+  };
 
-    RazorpayCheckout.open(options)
-      .then((data) => {
-        if (data?.razorpay_payment_id) {
-          Alert.alert(
-            "Payment Successful",
-            `Payment ID: ${data.razorpay_payment_id}`
-          );
+  const handlePayment = async () => {
+    if (processing) return;
+    if (!bookingSummary?.turfId || !bookingSummary?.vendorId || !date) {
+      Alert.alert("Error", "Booking information is incomplete");
+      return;
+    }
 
-          // navigation.navigate("Home");
-        } else {
-          Alert.alert("Payment Failed", "Invalid payment response");
-        }
-      })
-      .catch((error) => {
-        console.log(
-          "Razorpay Error:",
-          JSON.stringify(error, null, 2)
-        );
+    const razorpayKey = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID;
+    if (!razorpayKey) {
+      Alert.alert("Configuration Error", "Payment system is not configured. Please contact support.");
+      return;
+    }
+    setProcessing(true);
 
-        Alert.alert(
-          "Payment Failed",
-          error?.description ||
-            error?.message ||
-            "Payment cancelled or failed"
-        );
+    let orderData;
+    try {
+      const orderRes = await api.post("/bookings/create-order", {
+        bookingDetails: buildBookingDetails(),
       });
+      orderData = orderRes?.data;
+      if (!orderData?.orderId) {
+        throw new Error("Failed to create Razorpay order");
+      }
+    } catch (error) {
+      setProcessing(false);
+      Alert.alert(
+        "Payment Init Failed",
+        error?.response?.data?.message || error?.message || "Unable to create payment order"
+      );
+      return;
+    }
+
+    if (Platform.OS === "web") {
+      try {
+        const loadRazorpayScript = () =>
+          new Promise((resolve) => {
+            if (window.Razorpay) {
+              resolve(true);
+              return;
+            }
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+          });
+
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          setProcessing(false);
+          window.alert("Failed to load Razorpay. Please try again.");
+          return;
+        }
+
+        const options = {
+          key: razorpayKey,
+          order_id: orderData.orderId,
+          amount: orderData.amount,
+          currency: orderData.currency || "INR",
+          name: "PlayBhoomi",
+          description: `Booking at ${bookingSummary?.turfTitle || "Sports Arena"}`,
+          image: "https://i.pravatar.cc/100?img=1",
+          handler: async function (response) {
+            try {
+              await verifyPaymentAndCreateBooking(response, orderData.orderId);
+            } catch (err) {
+              setProcessing(false);
+              window.alert(
+                err?.response?.data?.message ||
+                  "Payment succeeded but booking verification failed. Contact support."
+              );
+            }
+          },
+          prefill: {
+            name: currentUser?.name || "User",
+            email: currentUser?.email || "",
+            contact: currentUser?.phone || "",
+          },
+          theme: {
+            color: "#00C247",
+          },
+          modal: {
+            ondismiss: function () {
+              setProcessing(false);
+            },
+            escape: false,
+            backdrop_close: false,
+          },
+        };
+
+        const razorpayInstance = new window.Razorpay(options);
+        razorpayInstance.on("payment.failed", function (response) {
+          setProcessing(false);
+          window.alert(
+            `Payment Failed!\n\nReason: ${response?.error?.description || "Unknown error"}`
+          );
+        });
+        razorpayInstance.open();
+      } catch (error) {
+        setProcessing(false);
+        window.alert(
+          error?.message || "Payment initialization failed. Please try again."
+        );
+      }
+      return;
+    }
+
+    if (!RazorpayCheckout) {
+      setProcessing(false);
+      Alert.alert("Error", "Razorpay is not available on this platform");
+      return;
+    }
+
+    try {
+      const options = {
+        description: `Booking at ${bookingSummary?.turfTitle || "Sports Arena Complex"}`,
+        image: "https://i.pravatar.cc/100?img=1",
+        currency: orderData.currency || "INR",
+        key: razorpayKey,
+        amount: orderData.amount,
+        order_id: orderData.orderId,
+        name: "PlayBhoomi",
+        prefill: {
+          name: currentUser?.name || "User",
+          email: currentUser?.email || "",
+          contact: currentUser?.phone || "",
+        },
+        theme: { color: "#00C247" },
+      };
+
+      const paymentResult = await RazorpayCheckout.open(options);
+      if (!paymentResult?.razorpay_payment_id) {
+        throw new Error("Invalid payment response");
+      }
+
+      await verifyPaymentAndCreateBooking(paymentResult, orderData.orderId);
+    } catch (error) {
+      setProcessing(false);
+      Alert.alert(
+        "Payment Failed",
+        error?.response?.data?.message ||
+          error?.description ||
+          error?.message ||
+          "Payment cancelled or failed"
+      );
+    }
   };
 
   return (
@@ -216,12 +433,16 @@ const BookingStatus = () => {
           </View>
         </View>
 
-        {/* Lock Warning Banner */}
+        {/* Lock Warning Banner with Countdown */}
         {userLocks.length > 0 && (
-          <View style={styles.lockBanner}>
-            <MaterialIcons name="lock-clock" size={18} color="#856404" />
-            <Text style={styles.lockBannerText}>
-              Slots reserved for 10 minutes. Complete payment to confirm.
+          <View style={[styles.lockBanner, lockSecondsLeft !== null && lockSecondsLeft <= 120 && lockSecondsLeft > 0 && { backgroundColor: "#FFE0E0", borderColor: "#D32F2F" }]}>
+            <MaterialIcons name="lock-clock" size={18} color={lockSecondsLeft !== null && lockSecondsLeft <= 120 ? "#D32F2F" : "#856404"} />
+            <Text style={[styles.lockBannerText, lockSecondsLeft !== null && lockSecondsLeft <= 120 && lockSecondsLeft > 0 && { color: "#D32F2F" }]}>
+              {lockSecondsLeft === null
+                ? "Slots reserved for 10 minutes. Complete payment to confirm."
+                : lockSecondsLeft <= 0
+                ? "Lock expired! Payment may still work — we'll try to re-acquire."
+                : `Slots reserved — ${formatCountdown(lockSecondsLeft)} remaining. Complete payment to confirm.`}
             </Text>
           </View>
         )}

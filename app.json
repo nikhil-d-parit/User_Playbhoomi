@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "Y"
+      "bundleIdentifier": "com.nikhil.parit.Krida"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,8 +23,12 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.nikhil.parit.Krida",
+      "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
       "permissions": [
-        "INTERNET"
+        "INTERNET",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {

@@ -51,5 +51,16 @@
     "babel-plugin-module-resolver": "^5.0.2",
     "baseline-browser-mapping": "^2.9.15"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-razorpay", "react-native-vector-icons"],
+        "listUnknownPackages": false
+      }
+    },
+    "install": {
+      "exclude": ["react-native-razorpay"]
+    }
+  }
 }

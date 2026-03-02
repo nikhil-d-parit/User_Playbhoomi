@@ -19,17 +19,23 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   // Fetch notifications from API
   const fetchNotifications = async () => {
     try {
       setLoading(true);
+      setFetchError(false);
       const res = await api.get("/users/notifications");
-      console.log("Notifications API:", res.data);
       setNotifications(res.data.notifications || []);
     } catch (err) {
       console.error("Error fetching notifications:", err);
-      Alert.alert("Error", "Failed to load notifications.");
+      // Treat 404 (no notifications endpoint yet) the same as empty
+      if (err.response?.status === 404) {
+        setNotifications([]);
+      } else {
+        setFetchError(true);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -133,8 +139,8 @@ export default function NotificationsScreen() {
 
   const groupedNotifications = groupByDate(notifications);
 
-  // If no notifications
-  if (!loading && notifications.length === 0) {
+  // If no notifications or fetch error
+  if (!loading && (notifications.length === 0 || fetchError)) {
     return (
       <ScrollView
         style={styles.container}
@@ -142,8 +148,12 @@ export default function NotificationsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <Ionicons name="notifications-off-outline" size={80} color="#ccc" />
-        <Text style={styles.emptyText}>No notifications yet</Text>
-        <Text style={styles.emptySubtext}>We'll notify you when something arrives</Text>
+        <Text style={styles.emptyText}>
+          {fetchError ? "Could not load notifications" : "No new notifications"}
+        </Text>
+        <Text style={styles.emptySubtext}>
+          {fetchError ? "Pull down to retry" : "We'll notify you when something arrives"}
+        </Text>
       </ScrollView>
     );
   }

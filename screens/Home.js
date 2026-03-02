@@ -48,6 +48,14 @@ const TEST_COORDS = {
   longitude: 87.859145,
 };
 
+const sportIconMap = {
+  Cricket:    cricketGradBat,
+  Football:   footBallIconGrad,
+  Tennis:     tennisIconGrad,
+  Badminton:  badmintonIconGrad,
+  Basketball: basketballIconGrad,
+};
+
 // Helper function to get minimum slot price and its discounted price from venue sports
 const getMinPricing = (venue) => {
   if (!venue.sports || venue.sports.length === 0) {
@@ -90,10 +98,17 @@ const HomeScreen = () => {
   const [isFiltered, setIsFiltered] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const debounceRef = useRef(null);
+  const hasFetchedWithRealLocation = useRef(false);
   const navigation = useNavigation();
-  
+
   // Get user data from Redux store
   const reduxUser = useSelector((state) => state.auth.user);
+
+  // Returns real device coords, or falls back to TEST_COORDS
+  const getCoords = () =>
+    location?.coords
+      ? { latitude: location.coords.latitude, longitude: location.coords.longitude }
+      : TEST_COORDS;
   const getLocationDetails = async (latitude, longitude) => {
     try {
       const response = await Location.reverseGeocodeAsync({
@@ -223,6 +238,26 @@ const HomeScreen = () => {
     }
   };
 
+  // Once real GPS location arrives, re-fetch venues with accurate coords (runs once per session)
+  useEffect(() => {
+    if (location?.coords && !hasFetchedWithRealLocation.current) {
+      hasFetchedWithRealLocation.current = true;
+      fetchNearbyVenues(location.coords.latitude, location.coords.longitude);
+    }
+  }, [location]);
+
+  // Reset filters when Home tab is tapped while already on Home
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress', () => {
+      setSelectedSport(null);
+      setSearchQuery("");
+      setIsFiltered(false);
+      const coords = getCoords();
+      fetchNearbyVenues(coords.latitude, coords.longitude);
+    });
+    return unsubscribe;
+  }, [navigation, location]);
+
   useEffect(() => {
     const initializeData = async () => {
       try {
@@ -248,15 +283,9 @@ const HomeScreen = () => {
             }
           }
         }
-//  // Get location and fetch nearby venues
-//         const locationResult = await getCurrentLocation();
-//         if (locationResult?.coords) {
-//           fetchNearbyVenues(locationResult.coords.latitude, locationResult.coords.longitude);
-//         }
-        // Fetch nearby venues with fallback test coordinates initially
+        // Show venues immediately with fallback coords, then re-fetch once real location arrives
         fetchNearbyVenues(TEST_COORDS.latitude, TEST_COORDS.longitude);
-
-        // Still get device location for display purposes and later searches
+        hasFetchedWithRealLocation.current = false;
         getCurrentLocation();
       } catch (error) {
         console.error('Error initializing data:', error);
@@ -282,7 +311,8 @@ const HomeScreen = () => {
     const trimmed = (text || "").trim();
     if (!trimmed) {
       // empty search -> show nearby venues
-      fetchNearbyVenues(TEST_COORDS.latitude, TEST_COORDS.longitude);
+      const coords = getCoords();
+      fetchNearbyVenues(coords.latitude, coords.longitude);
       return;
     }
 
@@ -397,10 +427,12 @@ const HomeScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
-        <Image
-          source={{ uri: userPhoto }}
-          style={styles.profileImage}
-        />
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <Image
+            source={{ uri: userPhoto }}
+            style={styles.profileImage}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -434,6 +466,7 @@ const HomeScreen = () => {
 
         <FilterModal
           visible={filterVisible}
+          currentLocation={location}
           onClose={() => setFilterVisible(false)}
           onApply={(filteredData) => {
             setVenueData(filteredData || []);
@@ -454,15 +487,11 @@ const HomeScreen = () => {
                 onPress={() => {
                   const newSport = selectedSport === sport.id ? null : sport.id;
                   setSelectedSport(newSport);
+                  const coords = getCoords();
                   if (newSport) {
-                    searchTurfs(
-                      sport.name.toLowerCase(),
-                      23.238860,  // Using the provided coordinates
-                      87.859537
-                    );
+                    searchTurfs(sport.name.toLowerCase(), coords.latitude, coords.longitude);
                   } else {
-                    // If deselecting, fetch nearby venues again
-                    fetchNearbyVenues(23.238860, 87.859537);
+                    fetchNearbyVenues(coords.latitude, coords.longitude);
                   }
                 }}
                 style={styles.circleWrapper}
@@ -512,10 +541,11 @@ const HomeScreen = () => {
                 : 'Popular Venues Near You'}
           </Text>
           {isFiltered && (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 setIsFiltered(false);
-                fetchNearbyVenues(23.238860, 87.859537);
+                const coords = getCoords();
+                fetchNearbyVenues(coords.latitude, coords.longitude);
               }}
               style={styles.clearFilter}
             >
@@ -584,18 +614,16 @@ const HomeScreen = () => {
                   </View>
 
                   <View style={styles.iconRow}>
-                    <Image
-                      source={cricketGradBat}
-                      style={{ width: 16, height: 16 }}
-                    />
-                    <Image
-                      source={footBallIconGrad}
-                      style={{ width: 16, height: 16 }}
-                    />
-                    <Image
-                      source={badmintonIconGrad}
-                      style={{ width: 16, height: 16 }}
-                    />
+                    {venue.sports?.slice(0, 4).map((sport, i) => {
+                      const icon = sportIconMap[sport.name];
+                      return icon ? (
+                        <Image
+                          key={i}
+                          source={icon}
+                          style={{ width: 16, height: 16 }}
+                        />
+                      ) : null;
+                    })}
                   </View>
                 </View>
 
@@ -696,10 +724,10 @@ const styles = StyleSheet.create({
 
   circleContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-evenly",
     paddingTop: 20,
   },
-  circleWrapper: { alignItems: "center", marginHorizontal: 8 },
+  circleWrapper: { alignItems: "center" },
   circle: {
     width: 42,
     height: 42,

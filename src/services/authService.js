@@ -64,7 +64,13 @@ export const authService = {
 
   // Sign in existing user
   async login(email, password) {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const authTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Login timed out. Please check your connection and try again.')), 15000)
+    );
+    const userCredential = await Promise.race([
+      signInWithEmailAndPassword(auth, email, password),
+      authTimeout
+    ]);
     const firebaseToken = await userCredential.user.getIdToken();
     
     // Get JWT from backend by sending Firebase token
@@ -85,10 +91,18 @@ export const authService = {
 
   // Sign out user
   async logout() {
+    // Sign out from Google Sign-In to force account picker on next login
     try {
-      console.log('Attempting to sign out from Firebase...');
+      const gsi = require('@react-native-google-signin/google-signin');
+      if (gsi?.GoogleSignin) {
+        await gsi.GoogleSignin.signOut();
+      }
+    } catch (e) {
+      // Not available in Expo Go or not a Google login — safe to ignore
+    }
+
+    try {
       await signOut(auth);
-      console.log('Firebase sign out successful');
     } catch (error) {
       console.error('Firebase sign out error:', error);
       // Even if Firebase logout fails, we should still proceed with clearing local storage

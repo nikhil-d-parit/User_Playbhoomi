@@ -32,44 +32,61 @@ const ProfileScreen = () => {
   
   // Get user data from Redux store
   const user = useSelector((state) => state.auth.user);
-  
+  const isGuest = user?.isGuest === true;
+
   // Fallback values if user data is not available
-  const displayName = user?.name || user?.displayName || 'User';
-  const displayEmail = user?.email || 'No email';
+  const displayName = user?.name || user?.displayName || 'Guest';
+  const displayEmail = user?.email || (isGuest ? null : 'No email');
   const displayPhoto = user?.photoURL || "https://i.pravatar.cc/100?img=1";
 
   return (
     <ScrollView style={styles.container}>
+      {/* Guest Banner */}
+      {isGuest && (
+        <View style={styles.guestBanner}>
+          <Text style={styles.guestBannerText}>You're browsing as a guest</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+            <Text style={styles.guestBannerCta}>Create an account →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Profile Info */}
       <View style={styles.profileInfo}>
-        <View style={styles.avatarCircle}>
-          <Image
-            source={{ uri: displayPhoto }}
-            style={{ width: 80, height: 80, borderRadius: 50 }}
-          />
-        </View>
+        {!isGuest && (
+          <View style={styles.avatarCircle}>
+            <Image
+              source={{ uri: displayPhoto }}
+              style={{ width: 80, height: 80, borderRadius: 50 }}
+            />
+          </View>
+        )}
         <Text style={styles.name}>{displayName}</Text>
-        <Text style={styles.email}>{displayEmail}</Text>
+        {displayEmail && <Text style={styles.email}>{displayEmail}</Text>}
       </View>
 
       <View style={styles.menuSection}>
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => navigation.navigate('EditProfile')}
-        >
-          <Image source={editProfileIcon} style={{ width: 20, height: 20 }} />
-          <Text style={styles.menuText}>Edit Profile</Text>
-          <Image source={rightIcon} style={{ width: 20, height: 20 }} />
-        </TouchableOpacity>
+        {!isGuest && (
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
+            <Image source={editProfileIcon} style={{ width: 20, height: 20 }} />
+            <Text style={styles.menuText}>Edit Profile</Text>
+            <Image source={rightIcon} style={{ width: 20, height: 20 }} />
+          </TouchableOpacity>
+        )}
 
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => navigation.navigate("ChangePasswordScreen")}
-        >
-          <Image source={lockIcon} style={{ width: 20, height: 20 }} />
-          <Text style={styles.menuText}>Change Password</Text>
-          <Image source={rightIcon} style={{ width: 20, height: 20 }} />
-        </TouchableOpacity>
+        {!isGuest && (
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate("ChangePasswordScreen")}
+          >
+            <Image source={lockIcon} style={{ width: 20, height: 20 }} />
+            <Text style={styles.menuText}>Change Password</Text>
+            <Image source={rightIcon} style={{ width: 20, height: 20 }} />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.menuItem}
@@ -81,15 +98,14 @@ const ProfileScreen = () => {
           <Image source={rightIcon} style={{ width: 20, height: 20 }} />
         </TouchableOpacity>
 
-        {/* <TouchableOpacity 
+        <TouchableOpacity
           style={styles.menuItem}
           onPress={() => navigation.navigate('TermsConditionsScreen')}
         >
           <Image source={termsDocs} style={{ width: 20, height: 20 }} />
-
           <Text style={styles.menuText}>Terms & Conditions</Text>
           <Image source={rightIcon} style={{ width: 20, height: 20 }} />
-        </TouchableOpacity> */}
+        </TouchableOpacity>
       </View>
 
       {/* Sign Out */}
@@ -150,19 +166,23 @@ const ProfileScreen = () => {
             }
           };
 
+          const title = isGuest ? 'Leave Guest Session' : 'Sign Out';
+          const message = isGuest
+            ? 'You will be taken back to the login screen.'
+            : 'Are you sure you want to sign out?';
+          const confirmLabel = isGuest ? 'Login / Sign Up' : 'Sign Out';
+
           if (Platform.OS === 'web') {
-            console.log('Web platform detected, using window.confirm');
-            if (window.confirm('Are you sure you want to sign out?')) {
+            if (window.confirm(message)) {
               startSignOut();
             }
           } else {
-            console.log('Mobile platform detected, using Alert.alert');
             Alert.alert(
-              'Sign Out',
-              'Are you sure you want to sign out?',
+              title,
+              message,
               [
-                { text: 'Cancel', style: 'cancel', onPress: () => console.log('Sign out cancelled') },
-                { text: 'Sign Out', onPress: startSignOut, style: 'destructive' },
+                { text: 'Cancel', style: 'cancel' },
+                { text: confirmLabel, onPress: startSignOut, style: 'destructive' },
               ],
               { cancelable: true }
             );
@@ -170,7 +190,7 @@ const ProfileScreen = () => {
         }}
       >
         <Image source={signOut} style={{ width: 20, height: 20 }} />
-        <Text style={styles.logoutText}>Sign out</Text>
+        <Text style={styles.logoutText}>{isGuest ? 'Login / Sign Up' : 'Sign out'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -256,8 +276,29 @@ const styles = StyleSheet.create({
   logoutText: {
     marginLeft: 10,
     fontSize: 15,
-    fontFamily: "Inter_500Medium", // CTA → Medium
+    fontFamily: "Inter_500Medium",
     color: "#444",
+  },
+  guestBanner: {
+    backgroundColor: "#FFF8E1",
+    borderLeftWidth: 4,
+    borderLeftColor: "#FFC107",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 6,
+  },
+  guestBannerText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    color: "#5D4037",
+  },
+  guestBannerCta: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    color: "#067B6A",
+    marginTop: 4,
   },
 });
 

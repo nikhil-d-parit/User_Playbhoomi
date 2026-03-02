@@ -35,9 +35,10 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-maps",
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "expo-maps",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {

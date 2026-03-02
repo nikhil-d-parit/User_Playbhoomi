@@ -269,6 +269,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#7B7B7B40",
     fontFamily: "Inter_400Medium",
+    color: "#1E1E1E",
   },
   button: { marginTop: 10 },
   title: {

@@ -1,6 +1,5 @@
-import * as Google from 'expo-auth-session/providers/google';
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { useCallback } from 'react';
+import { Platform, Alert } from 'react-native';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { useDispatch } from 'react-redux';
@@ -11,154 +10,131 @@ import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import config from '../../config';
 
+// Lazy-load native Google Sign-In (crashes on Expo Go)
+let GoogleSignin = null;
+let statusCodes = {};
+try {
+  const gsi = require('@react-native-google-signin/google-signin');
+  GoogleSignin = gsi.GoogleSignin;
+  statusCodes = gsi.statusCodes;
+  GoogleSignin.configure({
+    webClientId: config.GOOGLE_WEB_CLIENT_ID,
+    offlineAccess: false,
+  });
+} catch (e) {
+  console.warn('Google Sign-In native module not available (Expo Go?)');
+}
+
 export const useGoogleLogin = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: config.GOOGLE_EXPO_CLIENT_ID,
-    androidClientId: config.GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: config.GOOGLE_IOS_CLIENT_ID,
-    webClientId: config.GOOGLE_WEB_CLIENT_ID,
-    responseType: 'id_token',
-    scopes: ['openid', 'profile', 'email'],
-  });
-
-  /**
-   * 🔐 Authenticate with Firebase + Backend
-   */
-  const authenticateWithBackend = async (authResponse) => {
-    if (!authResponse) return;
-
-    if (authResponse.type === 'success') {
-      try {
-        console.log('🔵 Google OAuth success');
-
-        const { id_token } = authResponse.params || {};
-        if (!id_token) {
-          throw new Error('No id_token received from Google');
-        }
-
-        // Firebase login
-        const credential = GoogleAuthProvider.credential(id_token);
-        const userCredential = await signInWithCredential(auth, credential);
-        const firebaseUser = userCredential.user;
-
-        // Firebase ID token
-        const firebaseToken = await firebaseUser.getIdToken();
-
-        // Backend login
-        const result = await authService.googleLogin(firebaseToken);
-
-        // Store locally
-        await AsyncStorage.multiSet([
-          ['userToken', result.token],
-          ['firebaseToken', firebaseToken],
-          [
-            'userData',
-            JSON.stringify({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName,
-              photoURL: firebaseUser.photoURL,
-            }),
-          ],
-        ]);
-
-        // Redux update
-        dispatch(
-          setAuth({
-            user: {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              name: firebaseUser.displayName,
-              photoURL: firebaseUser.photoURL,
-            },
-            token: result.token,
-          })
-        );
-
-        Toast.show({
-          type: 'success',
-          text1: 'Login Successful',
-          text2: result.message || 'Welcome!',
-          position: 'bottom',
-        });
-
-        // Navigate
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Home' }],
-        });
-      } catch (error) {
-        console.error('❌ Google login failed:', error);
-
-        Toast.show({
-          type: 'error',
-          text1: 'Login Failed',
-          text2:
-            error.response?.data?.message ||
-            error.message ||
-            'Google login failed',
-          position: 'bottom',
-        });
-      }
-    }
-
-    if (authResponse.type === 'cancel') {
-      console.log('⚠️ Google login cancelled');
-    }
-
-    if (authResponse.type === 'error') {
-      console.error('❌ OAuth error:', authResponse.error);
-    }
-  };
-
-  /**
-   * 🌐 MANUAL HASH PARSING (Expo Web fix)
-   */
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-
-    if (
-      typeof globalThis === 'undefined' ||
-      !globalThis.location ||
-      !globalThis.location.hash
-    ) {
+  const handleGoogleLogin = useCallback(async () => {
+    if (!GoogleSignin) {
+      Alert.alert('Not Available', 'Google Sign-In requires a production build (APK). It does not work on Expo Go.');
       return;
     }
 
-    const hash = globalThis.location.hash;
-
-    if (hash.includes('id_token')) {
-      console.log('🔵 [WEB] Found id_token in URL hash');
-
-      const params = new URLSearchParams(hash.substring(1));
-      const idToken = params.get('id_token');
-
-      if (idToken) {
-        authenticateWithBackend({
-          type: 'success',
-          params: { id_token: idToken },
-        });
-
-        // Clear URL hash
-        globalThis.location.hash = '';
+    try {
+      // Check if Play Services are available (Android only)
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       }
-    }
-  }, []);
 
-  /**
-   * 📱 Native response listener
-   */
-  useEffect(() => {
-    if (response) {
-      authenticateWithBackend(response);
+      // Sign in with native Google dialog
+      const response = await GoogleSignin.signIn();
+
+      const idToken = response?.data?.idToken;
+      if (!idToken) {
+        throw new Error('No id_token received from Google');
+      }
+
+      console.log('Google Sign-In success, authenticating with Firebase...');
+
+      // Firebase login
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, credential);
+      const firebaseUser = userCredential.user;
+
+      // Firebase ID token
+      const firebaseToken = await firebaseUser.getIdToken();
+
+      // Backend login
+      const result = await authService.googleLogin(firebaseToken);
+
+      // Store locally
+      await AsyncStorage.multiSet([
+        ['userToken', result.token],
+        ['firebaseToken', firebaseToken],
+        [
+          'userData',
+          JSON.stringify({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+          }),
+        ],
+      ]);
+
+      // Redux update
+      dispatch(
+        setAuth({
+          user: {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+          },
+          token: result.token,
+        })
+      );
+
+      Toast.show({
+        type: 'success',
+        text1: 'Login Successful',
+        text2: result.message || 'Welcome!',
+        position: 'bottom',
+      });
+
+      // Navigate
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
+    } catch (error) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        console.log('Google login cancelled');
+        return;
+      }
+      if (error.code === statusCodes.IN_PROGRESS) {
+        console.log('Google sign-in already in progress');
+        return;
+      }
+      if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Toast.show({
+          type: 'error',
+          text1: 'Google Play Services Required',
+          text2: 'Please update Google Play Services',
+          position: 'bottom',
+        });
+        return;
+      }
+
+      console.error('Google login failed:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Login Failed',
+        text2:
+          error.response?.data?.message ||
+          error.message ||
+          'Google login failed',
+        position: 'bottom',
+      });
     }
-  }, [response]);
+  }, [dispatch, navigation]);
 
   return {
-    promptAsync,
-    request,
+    handleGoogleLogin,
   };
 };

@@ -39,6 +39,7 @@ const LoginScreen = () => {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   
   // Phone OTP states
   const [isPhoneLogin, setIsPhoneLogin] = useState(false);
@@ -48,7 +49,7 @@ const LoginScreen = () => {
   const [countdown, setCountdown] = useState(60);
   
   // Google login hook
-  const { promptAsync, request } = useGoogleLogin();
+  const { handleGoogleLogin } = useGoogleLogin();
 
   const isValidEmailOrPhone = (input) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -241,7 +242,7 @@ const LoginScreen = () => {
   };
 
   const handleGuestContinue = async () => {
-    setLoading(true);
+    setGuestLoading(true);
     try {
       const result = await authService.startGuestSession();
       console.log('Guest session started:', result);
@@ -289,7 +290,7 @@ const LoginScreen = () => {
         visibilityTime: 3000,
       });
     } finally {
-      setLoading(false);
+      setGuestLoading(false);
     }
   };
 
@@ -394,7 +395,7 @@ const LoginScreen = () => {
           onPress={otpSent ? handleVerifyOTP : handleContinue}
           disabled={loading}
         >
-          {loading ? (otpSent ? "Verifying..." : "Sending OTP...") : (otpSent ? "Verify OTP" : "Continue")}
+          {loading ? (otpSent ? "Verifying..." : isPhoneLogin ? "Sending OTP..." : "Signing in...") : (otpSent ? "Verify OTP" : "Continue")}
         </PrimaryButton>
         
         {/* Back to phone input */}
@@ -408,7 +409,7 @@ const LoginScreen = () => {
         <Text style={styles.orText}>Or</Text>
 
         {/* Google Button */}
-        <GoogleButton onPress={() => promptAsync()} disabled={!request} />
+        <GoogleButton onPress={handleGoogleLogin} />
 
         {/* Sign Up and Guest Links */}
         <View style={{ alignItems: "center", marginTop: 70 }}>
@@ -434,8 +435,12 @@ const LoginScreen = () => {
               </Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={{ marginTop: 5 }} onPress={handleGuestContinue} disabled={loading}>
-            <Text style={styles.link}>Continue as a guest</Text>
+          <TouchableOpacity style={{ marginTop: 5 }} onPress={handleGuestContinue} disabled={guestLoading}>
+            {guestLoading ? (
+              <ActivityIndicator size="small" color="#067B6A" />
+            ) : (
+              <Text style={styles.link}>Continue as a guest</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -443,8 +448,8 @@ const LoginScreen = () => {
         <View style={styles.termsContainer}>
           <Text style={styles.privacypolicyText}>
             By continuing, you agree to our{" "}
-            <Text style={styles.termsLink}>Terms</Text> and{" "}
-            <Text style={styles.termsLink}>Privacy Policy</Text>
+            <Text style={styles.termsLink} onPress={() => navigation.navigate("TermsConditionsScreen")}>Terms</Text> and{" "}
+            <Text style={styles.termsLink} onPress={() => navigation.navigate("TermsConditionsScreen")}>Privacy Policy</Text>
           </Text>
         </View>
         </View>

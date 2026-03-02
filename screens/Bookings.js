@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
@@ -56,25 +55,35 @@ const BookingCard = ({ item }) => {
   );
 };
 
-const Upcoming = () => {
+const fetchAllBookings = async () => {
+  const response = await api.get("/users/my-bookings");
+  return response.data.bookings || [];
+};
+
+const BookingList = ({ filter, emptyMessage }) => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const fetchBookings = async () => {
-    try {
-      const response = await api.get("/users/my-bookings");
-      console.log("Bookings response:", response.data);
-      setBookings(response.data.bookings || []);
-    } catch (error) {
-      console.error("Error fetching bookings:", error);
-      Alert.alert("Error", "Failed to load bookings.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetchBookings();
+    const load = async () => {
+      try {
+        const all = await fetchAllBookings();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const filtered = all.filter((b) => {
+          const bookingDate = new Date(b.date);
+          return filter === "upcoming" ? bookingDate >= today : bookingDate < today;
+        });
+        setBookings(filtered);
+      } catch (err) {
+        console.error("Error fetching bookings:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
   if (loading) {
@@ -85,10 +94,18 @@ const Upcoming = () => {
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyText}>Failed to load bookings. Please try again.</Text>
+      </View>
+    );
+  }
+
   if (!bookings.length) {
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyText}>No upcoming bookings</Text>
+        <Text style={styles.emptyText}>{emptyMessage}</Text>
       </View>
     );
   }
@@ -96,17 +113,19 @@ const Upcoming = () => {
   return (
     <FlatList
       data={bookings}
-      keyExtractor={(item) => item.bookingId}
+      keyExtractor={(item) => item.bookingId?.toString()}
       renderItem={({ item }) => <BookingCard item={item} />}
       contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
     />
   );
 };
 
+const Upcoming = () => (
+  <BookingList filter="upcoming" emptyMessage="No upcoming bookings" />
+);
+
 const Past = () => (
-  <View style={styles.emptyState}>
-    <Text style={styles.emptyText}>No past bookings</Text>
-  </View>
+  <BookingList filter="past" emptyMessage="No past bookings" />
 );
 
 export default function BookingsScreen() {

@@ -1,23 +1,23 @@
 
 import React from 'react';
-import { TouchableOpacity, View, Text, StyleSheet, Image } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 
 let googleIcon = require('../assets/google.png')
 
-const GoogleButton = ({ onPress, disabled }) => {
+const GoogleButton = ({ onPress, disabled, loading }) => {
   return (
-    <TouchableOpacity 
-      style={[styles.button, disabled && styles.disabledButton]} 
-      activeOpacity={0.8} 
+    <TouchableOpacity
+      style={[styles.button, (disabled || loading) && styles.disabledButton]}
+      activeOpacity={0.8}
       onPress={onPress}
-      disabled={disabled}
+      disabled={disabled || loading}
     >
-      <Image
-        source={googleIcon}
-        style={styles.icon}
-        resizeMode="contain"
-      />
-      <Text style={styles.text}>Continue with Google</Text>
+      {loading ? (
+        <ActivityIndicator size="small" color="#555" style={{ marginRight: 10 }} />
+      ) : (
+        <Image source={googleIcon} style={styles.icon} resizeMode="contain" />
+      )}
+      <Text style={styles.text}>{loading ? 'Signing in...' : 'Continue with Google'}</Text>
     </TouchableOpacity>
   );
 };

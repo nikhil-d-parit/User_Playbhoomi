@@ -49,7 +49,7 @@ const LoginScreen = () => {
   const [countdown, setCountdown] = useState(60);
   
   // Google login hook
-  const { handleGoogleLogin } = useGoogleLogin();
+  const { handleGoogleLogin, googleLoading } = useGoogleLogin();
 
   const isValidEmailOrPhone = (input) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -409,7 +409,7 @@ const LoginScreen = () => {
         <Text style={styles.orText}>Or</Text>
 
         {/* Google Button */}
-        <GoogleButton onPress={handleGoogleLogin} />
+        <GoogleButton onPress={handleGoogleLogin} loading={googleLoading} />
 
         {/* Sign Up and Guest Links */}
         <View style={{ alignItems: "center", marginTop: 70 }}>

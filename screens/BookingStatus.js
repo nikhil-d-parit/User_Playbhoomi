@@ -15,6 +15,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSelector } from "react-redux";
 import { selectUser } from "../src/store/slices/authSlice";
+import moment from "moment";
+import Toast from "react-native-toast-message";
 // Conditionally import Razorpay only on native platforms
 let RazorpayCheckout = null;
 if (Platform.OS !== 'web') {
@@ -43,10 +45,13 @@ const BookingStatus = () => {
   const currentUser = useSelector(selectUser);
 
   const [processing, setProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState(""); // "Creating order..." / "Opening payment..." / "Verifying..." / "Confirming booking..."
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [lockSecondsLeft, setLockSecondsLeft] = useState(null);
   const lockTimerRef = useRef(null);
   const autoExtendTriggeredRef = useRef(false);
+  const [orderData, setOrderData] = useState(null); // Pre-created Razorpay order
+  const [orderLoading, setOrderLoading] = useState(true); // Preparing order in background
 
   // Lock countdown timer + auto-extend
   useEffect(() => {
@@ -94,6 +99,35 @@ const BookingStatus = () => {
       if (lockTimerRef.current) clearInterval(lockTimerRef.current);
     };
   }, [userLocks, bookingConfirmed, processing, bookingSummary, date]);
+
+  // Pre-create Razorpay order when screen mounts so "Pay" opens instantly
+  useEffect(() => {
+    if (!bookingSummary?.turfId || !bookingSummary?.vendorId || !date) {
+      setOrderLoading(false);
+      return;
+    }
+    const createOrder = async () => {
+      try {
+        const res = await api.post("/bookings/create-order", {
+          bookingDetails: {
+            vendorId: bookingSummary.vendorId,
+            turfId: bookingSummary.turfId,
+            sports: (bookingSummary.selectedSport || "").toLowerCase(),
+            selectedSlots: bookingSummary.selectedSlots || [],
+            date,
+            finalAmount,
+          },
+        });
+        if (res.data?.orderId) setOrderData(res.data);
+      } catch (err) {
+        // Silent: will fall back to creating on button press
+        console.log("Pre-create order failed, will retry on pay:", err.message);
+      } finally {
+        setOrderLoading(false);
+      }
+    };
+    createOrder();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Format seconds to MM:SS
   const formatCountdown = useCallback((seconds) => {
@@ -232,6 +266,7 @@ const BookingStatus = () => {
   });
 
   const verifyPaymentAndCreateBooking = async (paymentResponse, fallbackOrderId) => {
+    setProcessingStep("Confirming booking...");
     const verifyRes = await api.post("/bookings/verify-payment", {
       razorpay_payment_id: paymentResponse?.razorpay_payment_id,
       razorpay_order_id: paymentResponse?.razorpay_order_id || fallbackOrderId,
@@ -242,6 +277,7 @@ const BookingStatus = () => {
 
     setBookingConfirmed(true);
     setProcessing(false);
+    setProcessingStep("");
 
     const paymentId = paymentResponse?.razorpay_payment_id;
     const bookingId = verifyRes?.data?.bookingId;
@@ -275,32 +311,37 @@ const BookingStatus = () => {
     }
     setProcessing(true);
 
-    let orderData;
-    try {
-      const orderRes = await api.post("/bookings/create-order", {
-        bookingDetails: buildBookingDetails(),
-      });
-      orderData = orderRes?.data;
-      if (!orderData?.orderId) {
-        throw new Error("Failed to create Razorpay order");
+    // Use pre-created order if available, otherwise create now
+    let activeOrder = orderData;
+    if (!activeOrder?.orderId) {
+      setProcessingStep("Creating order...");
+      try {
+        const orderRes = await api.post("/bookings/create-order", {
+          bookingDetails: buildBookingDetails(),
+        });
+        activeOrder = orderRes?.data;
+        if (!activeOrder?.orderId) throw new Error("Failed to create Razorpay order");
+        setOrderData(activeOrder);
+      } catch (error) {
+        setProcessing(false);
+        setProcessingStep("");
+        Toast.show({
+          type: "error",
+          text1: "Payment Init Failed",
+          text2: error?.response?.data?.message || error?.message || "Unable to create payment order",
+          position: "bottom",
+          visibilityTime: 4000,
+        });
+        return;
       }
-    } catch (error) {
-      setProcessing(false);
-      Alert.alert(
-        "Payment Init Failed",
-        error?.response?.data?.message || error?.message || "Unable to create payment order"
-      );
-      return;
     }
+    setProcessingStep("Opening payment...");
 
     if (Platform.OS === "web") {
       try {
         const loadRazorpayScript = () =>
           new Promise((resolve) => {
-            if (window.Razorpay) {
-              resolve(true);
-              return;
-            }
+            if (window.Razorpay) { resolve(true); return; }
             const script = document.createElement("script");
             script.src = "https://checkout.razorpay.com/v1/checkout.js";
             script.onload = () => resolve(true);
@@ -311,41 +352,39 @@ const BookingStatus = () => {
         const scriptLoaded = await loadRazorpayScript();
         if (!scriptLoaded) {
           setProcessing(false);
-          window.alert("Failed to load Razorpay. Please try again.");
+          setProcessingStep("");
+          Toast.show({ type: "error", text1: "Failed to load Razorpay", text2: "Please try again", position: "bottom" });
           return;
         }
 
         const options = {
           key: razorpayKey,
-          order_id: orderData.orderId,
-          amount: orderData.amount,
-          currency: orderData.currency || "INR",
+          order_id: activeOrder.orderId,
+          amount: activeOrder.amount,
+          currency: activeOrder.currency || "INR",
           name: "PlayBhoomi",
           description: `Booking at ${bookingSummary?.turfTitle || "Sports Arena"}`,
           image: "https://i.pravatar.cc/100?img=1",
           handler: async function (response) {
+            setProcessingStep("Verifying payment...");
             try {
-              await verifyPaymentAndCreateBooking(response, orderData.orderId);
+              await verifyPaymentAndCreateBooking(response, activeOrder.orderId);
             } catch (err) {
               setProcessing(false);
-              window.alert(
-                err?.response?.data?.message ||
-                  "Payment succeeded but booking verification failed. Contact support."
-              );
+              setProcessingStep("");
+              Toast.show({
+                type: "error",
+                text1: "Booking creation failed",
+                text2: `Payment received (ID: ${response?.razorpay_payment_id}). Contact support.`,
+                position: "bottom",
+                visibilityTime: 6000,
+              });
             }
           },
-          prefill: {
-            name: currentUser?.name || "User",
-            email: currentUser?.email || "",
-            contact: currentUser?.phone || "",
-          },
-          theme: {
-            color: "#00C247",
-          },
+          prefill: { name: currentUser?.name || "User", email: currentUser?.email || "", contact: currentUser?.phone || "" },
+          theme: { color: "#00C247" },
           modal: {
-            ondismiss: function () {
-              setProcessing(false);
-            },
+            ondismiss: function () { setProcessing(false); setProcessingStep(""); },
             escape: false,
             backdrop_close: false,
           },
@@ -354,22 +393,27 @@ const BookingStatus = () => {
         const razorpayInstance = new window.Razorpay(options);
         razorpayInstance.on("payment.failed", function (response) {
           setProcessing(false);
-          window.alert(
-            `Payment Failed!\n\nReason: ${response?.error?.description || "Unknown error"}`
-          );
+          setProcessingStep("");
+          Toast.show({
+            type: "error",
+            text1: "Payment Declined",
+            text2: response?.error?.description || "Your payment was not processed",
+            position: "bottom",
+            visibilityTime: 4000,
+          });
         });
         razorpayInstance.open();
       } catch (error) {
         setProcessing(false);
-        window.alert(
-          error?.message || "Payment initialization failed. Please try again."
-        );
+        setProcessingStep("");
+        Toast.show({ type: "error", text1: "Payment Error", text2: error?.message || "Please try again", position: "bottom" });
       }
       return;
     }
 
     if (!RazorpayCheckout) {
       setProcessing(false);
+      setProcessingStep("");
       Alert.alert("Error", "Razorpay is not available on this platform");
       return;
     }
@@ -378,34 +422,50 @@ const BookingStatus = () => {
       const options = {
         description: `Booking at ${bookingSummary?.turfTitle || "Sports Arena Complex"}`,
         image: "https://i.pravatar.cc/100?img=1",
-        currency: orderData.currency || "INR",
+        currency: activeOrder.currency || "INR",
         key: razorpayKey,
-        amount: orderData.amount,
-        order_id: orderData.orderId,
+        amount: activeOrder.amount,
+        order_id: activeOrder.orderId,
         name: "PlayBhoomi",
-        prefill: {
-          name: currentUser?.name || "User",
-          email: currentUser?.email || "",
-          contact: currentUser?.phone || "",
-        },
+        prefill: { name: currentUser?.name || "User", email: currentUser?.email || "", contact: currentUser?.phone || "" },
         theme: { color: "#00C247" },
       };
 
       const paymentResult = await RazorpayCheckout.open(options);
-      if (!paymentResult?.razorpay_payment_id) {
-        throw new Error("Invalid payment response");
-      }
+      if (!paymentResult?.razorpay_payment_id) throw new Error("Invalid payment response");
 
-      await verifyPaymentAndCreateBooking(paymentResult, orderData.orderId);
+      setProcessingStep("Verifying payment...");
+      await verifyPaymentAndCreateBooking(paymentResult, activeOrder.orderId);
     } catch (error) {
       setProcessing(false);
-      Alert.alert(
-        "Payment Failed",
-        error?.response?.data?.message ||
-          error?.description ||
-          error?.message ||
-          "Payment cancelled or failed"
-      );
+      setProcessingStep("");
+
+      // Detect user cancellation (Razorpay returns code 0 or specific description)
+      const isCancelled =
+        error?.code === 0 ||
+        error?.description?.toLowerCase().includes("cancel") ||
+        error?.message?.toLowerCase().includes("cancel");
+
+      if (isCancelled) {
+        Toast.show({ type: "info", text1: "Payment Cancelled", text2: "You cancelled the payment", position: "bottom", visibilityTime: 3000 });
+      } else if (error?.response?.data?.message) {
+        // Backend returned an error AFTER payment was captured
+        Toast.show({
+          type: "error",
+          text1: "Booking Creation Failed",
+          text2: `Payment captured but booking failed. Contact support with payment ID.`,
+          position: "bottom",
+          visibilityTime: 6000,
+        });
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Payment Failed",
+          text2: error?.description || error?.message || "Payment was not completed",
+          position: "bottom",
+          visibilityTime: 4000,
+        });
+      }
     }
   };
 
@@ -460,7 +520,7 @@ const BookingStatus = () => {
         <Text style={styles.sectionTitle}>Date & Time</Text>
         <View style={styles.rowWithIcon}>
           <Image source={calenderIcon} style={styles.iconSmall} />
-          <Text style={styles.detailText}>{date || "Saturday, 04/10/2025"}</Text>
+          <Text style={styles.detailText}>{date ? moment(date).format("ddd, Do MMM YYYY") : "—"}</Text>
         </View>
         <View style={styles.rowWithIcon}>
           <Image source={clockIcon} style={styles.iconSmall} />
@@ -536,10 +596,10 @@ const BookingStatus = () => {
         <TouchableOpacity
           style={styles.gradientButton}
           onPress={handlePayment}
-          disabled={processing}
+          disabled={processing || orderLoading}
         >
           <LinearGradient
-            colors={processing ? ["#999", "#666"] : ["#00C247", "#004CE8"]}
+            colors={processing || orderLoading ? ["#999", "#666"] : ["#00C247", "#004CE8"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1.5 }}
             style={styles.gradientButtonBg}
@@ -547,7 +607,14 @@ const BookingStatus = () => {
             {processing ? (
               <View style={styles.processingRow}>
                 <ActivityIndicator size="small" color="#fff" />
-                <Text style={[styles.gradientButtonText, { marginLeft: 8 }]}>Processing...</Text>
+                <Text style={[styles.gradientButtonText, { marginLeft: 8 }]}>
+                  {processingStep || "Processing..."}
+                </Text>
+              </View>
+            ) : orderLoading ? (
+              <View style={styles.processingRow}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={[styles.gradientButtonText, { marginLeft: 8 }]}>Preparing...</Text>
               </View>
             ) : (
               <Text style={styles.gradientButtonText}>Pay Rs.{finalAmount}.00</Text>

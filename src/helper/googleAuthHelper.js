@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Platform, Alert } from 'react-native';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../config/firebase';
@@ -28,13 +28,16 @@ try {
 export const useGoogleLogin = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleGoogleLogin = useCallback(async () => {
     if (!GoogleSignin) {
       Alert.alert('Not Available', 'Google Sign-In requires a production build (APK). It does not work on Expo Go.');
       return;
     }
+    if (googleLoading) return;
 
+    setGoogleLoading(true);
     try {
       // Check if Play Services are available (Android only)
       if (Platform.OS === 'android') {
@@ -131,10 +134,13 @@ export const useGoogleLogin = () => {
           'Google login failed',
         position: 'bottom',
       });
+    } finally {
+      setGoogleLoading(false);
     }
-  }, [dispatch, navigation]);
+  }, [dispatch, navigation, googleLoading]);
 
   return {
     handleGoogleLogin,
+    googleLoading,
   };
 };

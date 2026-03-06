@@ -24,6 +24,8 @@ import footBallIconGrad from "../assets/icons/gradient/icon-football-gradient.pn
 import footBallIconWhite from "../assets/icons/white/football_white.png";
 import tennisIconGrad from "../assets/icons/gradient/icon-tennis-gradient.png";
 import tennisIconWhite from "../assets/icons/white/tennis_white.png";
+import badmintonIconGrad from "../assets/icons/gradient/icon-badminton-gradient.png";
+import badmintonIconWhite from "../assets/icons/white/badminton_white.png";
 
 const BookingScreen = ({ route }) => {
   const { turfDetails } = route.params || {};
@@ -42,11 +44,13 @@ const BookingScreen = ({ route }) => {
   const [userLocks, setUserLocks] = useState([]); // [{ slot: "10:00 - 11:00", lockId: "uuid" }]
   const [lockingSlot, setLockingSlot] = useState(null); // Currently being locked
   const pollingIntervalRef = useRef(null);
+  const [countdown, setCountdown] = useState(null); // seconds remaining on lock
 
   const predefinedSports = [
     { id: "Cricket", name: "Cricket", gradientIcon: cricketGradBat, whiteIcon: cricketBatWhite },
     { id: "Football", name: "Football", gradientIcon: footBallIconGrad, whiteIcon: footBallIconWhite },
     { id: "Tennis", name: "Tennis", gradientIcon: tennisIconGrad, whiteIcon: tennisIconWhite },
+    { id: "Badminton", name: "Badminton", gradientIcon: badmintonIconGrad, whiteIcon: badmintonIconWhite },
   ];
 
   const availableSports = predefinedSports.filter((sport) =>
@@ -61,11 +65,17 @@ const BookingScreen = ({ route }) => {
   // Get slot duration from selected sport (default 60 mins)
   const slotDuration = selectedSportDetails?.slotDuration || 60;
 
-  // Get timeSlots from SELECTED sport (each sport has its own timings!)
-  const selectedSportTimeSlots = selectedSportDetails?.timeSlots || [];
+  // Detect weekday vs weekend (0 = Sun, 6 = Sat)
+  const isWeekend = formattedDate ? [0, 6].includes(moment(formattedDate).day()) : false;
 
-  // Fallback to first sport or root level timeSlots if no sport selected yet
-  const fallbackTimeSlots = turfDetails?.sports?.[0]?.timeSlots || turfDetails?.timeSlots || [{ open: "06:00", close: "22:00" }];
+  // Use weekdayTimeSlots or weekendTimeSlots based on selected date
+  const timeSlotsToUse = (() => {
+    if (!selectedSportDetails) return [{ open: "06:00", close: "22:00" }];
+    const { weekdayTimeSlots, weekendTimeSlots } = selectedSportDetails;
+    if (isWeekend && weekendTimeSlots?.length > 0) return weekendTimeSlots;
+    if (!isWeekend && weekdayTimeSlots?.length > 0) return weekdayTimeSlots;
+    return [{ open: "06:00", close: "22:00" }];
+  })();
 
   // Generate next 7 days
   const generateDates = () => {
@@ -145,20 +155,18 @@ const BookingScreen = ({ route }) => {
     return slots;
   };
 
-  // Generate slots from SELECTED sport's timeSlots
-  // Each sport can have multiple time ranges (e.g., morning 6-12, evening 16-22)
-  const timeSlotsToUse = selectedSportTimeSlots.length > 0 ? selectedSportTimeSlots : fallbackTimeSlots;
-
   const hourlySlots = timeSlotsToUse.flatMap((timeRange) =>
     generateHourlySlots(timeRange.open || "06:00", timeRange.close || "22:00", slotDuration)
   );
 
-  // console.log("Generating slots:", {
-  //   sport: selectedSport,
-  //   slotDuration,
-  //   timeSlots: timeSlotsToUse,
-  //   generatedSlots: hourlySlots,
-  // });
+  // Fix 1: Filter out past slots when the selected date is today
+  const isToday = formattedDate === moment().format("YYYY-MM-DD");
+  const visibleSlots = isToday
+    ? hourlySlots.filter((slot) => {
+        const [startTime] = slot.split(" - ");
+        return moment(`${formattedDate} ${startTime}`, "YYYY-MM-DD HH:mm").isAfter(moment());
+      })
+    : hourlySlots;
 
   // Fetch slot statuses with polling (optional - won't block UI if it fails)
   const fetchSlotStatuses = useCallback(async () => {
@@ -241,7 +249,34 @@ const BookingScreen = ({ route }) => {
     setSelectedSlots([]);
     setUserLocks([]);
     setSlotStatuses({});
+    setCountdown(null);
   }, [formattedDate, selectedSport]);
+
+  // Fix 7: Live countdown timer from earliest lock expiresAt
+  useEffect(() => {
+    if (selectedSlots.length === 0) {
+      setCountdown(null);
+      return;
+    }
+    const tick = () => {
+      let earliest = null;
+      selectedSlots.forEach((slot) => {
+        const exp = slotStatuses[slot]?.expiresAt;
+        if (exp) {
+          const ms = new Date(exp).getTime();
+          if (!earliest || ms < earliest) earliest = ms;
+        }
+      });
+      if (earliest) {
+        setCountdown(Math.max(0, Math.floor((earliest - Date.now()) / 1000)));
+      } else {
+        setCountdown(600); // default 10 min when expiresAt not yet loaded
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [selectedSlots, slotStatuses]);
 
   // Handle slot press - toggle selection (with optional locking)
   const handleSlotPress = async (slot) => {
@@ -327,7 +362,8 @@ const BookingScreen = ({ route }) => {
       textColor = "#D32F2F";
       isDisabled = true;
       statusText = "Booked";
-    } else if (status === "locked") {
+    } else if (status === "locked" && !isSelected) {
+      // Only disable if locked by someone else; own locked slots stay tappable to unselect
       bgColor = "#FFF3CD";
       textColor = "#856404";
       isDisabled = true;
@@ -525,14 +561,14 @@ const BookingScreen = ({ route }) => {
         {/* Time Slots */}
         <Text style={styles.sectionTitle}>Time</Text>
         <View style={styles.slotContainer}>
-          {hourlySlots.map((slot) => {
+          {visibleSlots.map((slot) => {
             const { bgColor, textColor, isDisabled, isSelected, statusText, isLocking } = getSlotDisplayInfo(slot);
 
             return (
               <TouchableOpacity
                 key={slot}
-                onPress={() => !isDisabled && handleSlotPress(slot)}
-                disabled={isDisabled || isLocking}
+                onPress={() => handleSlotPress(slot)}
+                disabled={isLocking || (isDisabled && !selectedSlots.includes(slot))}
                 style={{ width: "30%", marginVertical: 5 }}
               >
                 {isSelected && !isLocking ? (
@@ -565,9 +601,19 @@ const BookingScreen = ({ route }) => {
           <View style={styles.selectedSummary}>
             <Text style={styles.summaryText}>
               {selectedSlots.length} slot{selectedSlots.length > 1 ? "s" : ""} selected
+              {" · "}
+              {(() => {
+                const total = slotDuration * selectedSlots.length;
+                if (total < 60) return `${total} mins`;
+                if (total % 60 === 0) return `${total / 60}h`;
+                return `${Math.floor(total / 60)}h ${total % 60}m`;
+              })()}
             </Text>
+            <Text style={styles.summarySlots}>{selectedSlots.join("  |  ")}</Text>
             <Text style={styles.summarySubtext}>
-              Slots reserved for 10 minutes
+              {countdown !== null
+                ? `Reserved for ${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, "0")}`
+                : "Reserved for 10:00"}
             </Text>
           </View>
         )}
@@ -665,10 +711,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  summarySlots: {
+    color: "#388E3C",
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: "center",
+  },
   summarySubtext: {
     color: "#4CAF50",
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: "500",
   },
 });
 

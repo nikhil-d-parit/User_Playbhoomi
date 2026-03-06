@@ -15,12 +15,13 @@ import { Text, Chip } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import api from "../src/services/apiService";
-// import MapView, { Marker } from "react-native-maps"; // Commented out for web compatibility
 
 // Icons
 import locationIcon from "../assets/icons/gray/icon-loaction-gradient.png";
 import cricketGradBat from "../assets/icons/gradient/icon-cricket-gradient.png";
 import footBallIconGrad from "../assets/icons/gradient/icon-football-gradient.png";
+import tennisIconGrad from "../assets/icons/gradient/icon-tennis-gradient.png";
+import badmintonIconGrad from "../assets/icons/gradient/icon-badminton-gradient.png";
 import clockIcon from "../assets/icons/gradient/icon-timelapse-gradient.png";
 import parkingIcon from "../assets/icons/gradient/icon-car-gradient.png";
 import washroomIcon from "../assets/icons/gradient/icon-washroom-gradient.png";
@@ -178,10 +179,18 @@ const VenueDetailsScreen = ({ route }) => {
 
           {/* Prices */}
           <View style={styles.chipRow}>
-            {turfDetails?.sports?.map((sport, index) => (
+            {turfDetails?.sports?.map((sport, index) => {
+              const sportIconMap = {
+                Cricket: cricketGradBat,
+                Football: footBallIconGrad,
+                Tennis: tennisIconGrad,
+                Badminton: badmintonIconGrad,
+              };
+              const icon = sportIconMap[sport.name] || footBallIconGrad;
+              return (
               <React.Fragment key={index}>
                 {renderChip(
-                  sport.name === "Cricket" ? cricketGradBat : footBallIconGrad,
+                  icon,
                   `${sport.name} - ₹${
                     sport.discountedPrice || sport.slotPrice
                   }/hr`,
@@ -191,7 +200,8 @@ const VenueDetailsScreen = ({ route }) => {
                   },
                 )}
               </React.Fragment>
-            ))}
+              );
+            })}
           </View>
           {/* Timings */}
           <Text variant="titleMedium" style={[styles.title, { marginTop: 20 }]}>
@@ -221,33 +231,6 @@ const VenueDetailsScreen = ({ route }) => {
               )}
             </Text>
           </View>
-          {/* Courts */}
-          {turfDetails?.sports?.[0]?.courts?.length > 0 && (
-            <>
-              <Text
-                variant="titleMedium"
-                style={[styles.title, { marginTop: 16 }]}
-              >
-                Courts
-              </Text>
-
-              <View style={{ marginTop: 8 }}>
-                {turfDetails.sports[0].courts.map((court, index) => (
-                  <Text
-                    key={index}
-                    style={{
-                      fontSize: 14,
-                      fontFamily: "Inter_400Regular",
-                      color: "#1E1E1E",
-                      marginBottom: 4,
-                    }}
-                  >
-                    • {court}
-                  </Text>
-                ))}
-              </View>
-            </>
-          )}
 
           {/* Amenities */}
           <Text variant="titleMedium" style={[styles.title, { marginTop: 20 }]}>
@@ -319,28 +302,24 @@ const VenueDetailsScreen = ({ route }) => {
           {turfDetails?.vendorCoordinates?.lat &&
           turfDetails?.vendorCoordinates?.lng ? (
             <TouchableOpacity
-              style={{ alignItems: "center", marginTop: 10 }}
-              activeOpacity={0.9}
+              style={styles.locationCard}
               onPress={openGoogleMaps}
+              activeOpacity={0.8}
             >
               <Image
-                source={require("../assets/mapImage.png")}
-                style={styles.map}
-                resizeMode="cover"
+                source={locationIcon}
+                style={{ width: 32, height: 32, marginBottom: 8 }}
+                resizeMode="contain"
               />
+              <Text style={styles.locationCardAddress} numberOfLines={2}>
+                {turfDetails.address}
+              </Text>
+              <View style={styles.directionsBtn}>
+                <Text style={styles.directionsBtnText}>Get Directions →</Text>
+              </View>
             </TouchableOpacity>
           ) : (
-            <View
-              style={{
-                width: screenWidth - 20,
-                height: 200,
-                borderRadius: 12,
-                backgroundColor: "#F1F5F9",
-                justifyContent: "center",
-                alignItems: "center",
-                marginTop: 10,
-              }}
-            >
+            <View style={styles.locationCard}>
               <Text style={{ color: "#555", fontFamily: "Inter_500Medium" }}>
                 Location not available
               </Text>
@@ -459,10 +438,33 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
   },
-  map: {
-    width: screenWidth - 20,
-    height: 300,
+  locationCard: {
+    marginTop: 10,
+    width: screenWidth - 32,
+    backgroundColor: "#F1F5F9",
     borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 160,
+  },
+  locationCardAddress: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: "#555",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  directionsBtn: {
+    backgroundColor: "#067B6A",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  directionsBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
   },
 });
 

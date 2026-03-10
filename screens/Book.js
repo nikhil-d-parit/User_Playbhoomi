@@ -293,20 +293,16 @@ const BookingScreen = ({ route }) => {
 
     // If already selected by this user, deselect it
     if (selectedSlots.includes(slot) || status === "selected") {
+      // Optimistic update: change UI instantly, release lock in background
+      setSelectedSlots((prev) => prev.filter((s) => s !== slot));
       const userLock = userLocks.find((l) => l.slot === slot);
       const lockIdToRelease = userLock?.lockId || existingLockId;
-
-      // Try to release lock if exists
       if (lockIdToRelease) {
-        try {
-          await api.delete(`/slots/unlock/${lockIdToRelease}`);
-        } catch (err) {
-          console.log("Lock release skipped:", err.message);
-        }
         setUserLocks((prev) => prev.filter((l) => l.slot !== slot));
+        api.delete(`/slots/unlock/${lockIdToRelease}`)
+          .catch((err) => console.log("Lock release skipped:", err.message))
+          .finally(() => fetchSlotStatuses());
       }
-      setSelectedSlots((prev) => prev.filter((s) => s !== slot));
-      fetchSlotStatuses();
       return;
     }
 

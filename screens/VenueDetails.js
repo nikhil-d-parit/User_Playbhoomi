@@ -187,13 +187,13 @@ const VenueDetailsScreen = ({ route }) => {
                 Badminton: badmintonIconGrad,
               };
               const icon = sportIconMap[sport.name] || footBallIconGrad;
+              const courtCount = sport.courts?.length || 0;
+              const courtLabel = courtCount > 0 ? ` • ${courtCount} Court${courtCount !== 1 ? 's' : ''}` : '';
               return (
               <React.Fragment key={index}>
                 {renderChip(
                   icon,
-                  `${sport.name} - ₹${
-                    sport.discountedPrice || sport.slotPrice
-                  }/hr`,
+                  `${sport.name} - ₹${sport.discountedPrice || sport.slotPrice}/hr${courtLabel}`,
                   {
                     color: "#49454F",
                     fontFamily: "Inter_500Medium",
@@ -391,13 +391,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    justifyContent: "space-between",
     marginTop: 12,
   },
   chip: {
     backgroundColor: "#F1F5F9",
     height: 42,
-    minWidth: "48%",
+    minWidth: "47%",
+    flex: 1,
     justifyContent: "center",
   },
   chipText: {

@@ -44,6 +44,9 @@ export const useGoogleLogin = () => {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       }
 
+      // Sign out first to clear cached token so account picker always appears
+      try { await GoogleSignin.signOut(); } catch (_) {}
+
       // Sign in with native Google dialog
       const response = await GoogleSignin.signIn();
 

@@ -14,13 +14,14 @@ const SplashScreen = () => {
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        const [token, userData] = await Promise.all([
-          AsyncStorage.getItem('userToken'),
-          AsyncStorage.getItem('userData')
+        // Run auth check and minimum display time in parallel
+        const [[token, userData]] = await Promise.all([
+          AsyncStorage.multiGet(['userToken', 'userData']),
+          new Promise((resolve) => setTimeout(resolve, 2500)), // minimum 2.5s splash
         ]);
-        if (token && userData) {
-          const user = JSON.parse(userData);
-          dispatch(setAuth({ user, token }));
+        if (token[1] && userData[1]) {
+          const user = JSON.parse(userData[1]);
+          dispatch(setAuth({ user, token: token[1] }));
           navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
         } else {
           navigation.replace('Login');

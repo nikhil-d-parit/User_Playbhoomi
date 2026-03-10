@@ -449,14 +449,13 @@ const BookingStatus = () => {
       if (isCancelled) {
         Toast.show({ type: "info", text1: "Payment Cancelled", text2: "You cancelled the payment", position: "bottom", visibilityTime: 3000 });
       } else if (error?.response?.data?.message) {
-        // Backend returned an error AFTER payment was captured
-        Toast.show({
-          type: "error",
-          text1: "Booking Creation Failed",
-          text2: `Payment captured but booking failed. Contact support with payment ID.`,
-          position: "bottom",
-          visibilityTime: 6000,
-        });
+        // Backend returned an error AFTER payment was captured — refund is auto-triggered
+        const backendMsg = error.response.data.message;
+        Alert.alert(
+          "Booking Failed",
+          `${backendMsg}\n\nYour payment will be refunded automatically within 5-7 business days. If not received, contact support.`,
+          [{ text: "OK" }]
+        );
       } else {
         Toast.show({
           type: "error",

@@ -6,6 +6,9 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  ScrollView,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
@@ -13,7 +16,7 @@ import api from "../src/services/apiService";
 
 const TopTab = createMaterialTopTabNavigator();
 
-const BookingCard = ({ item }) => {
+const BookingCard = ({ item, onViewDetails }) => {
   const isCancelled = item.bookingStatus?.toLowerCase() === "cancelled";
 
   return (
@@ -48,10 +51,52 @@ const BookingCard = ({ item }) => {
       <Text style={styles.bookingCode}>Booking ID: #{item.bookingId}</Text>
 
       {/* Button */}
-      <TouchableOpacity style={styles.detailsBtn}>
+      <TouchableOpacity style={styles.detailsBtn} onPress={() => onViewDetails(item)}>
         <Text style={styles.detailsText}>View Details</Text>
       </TouchableOpacity>
     </View>
+  );
+};
+
+const BookingDetailModal = ({ booking, onClose }) => {
+  if (!booking) return null;
+  const isCancelled = booking.bookingStatus?.toLowerCase() === "cancelled";
+  const statusColor = isCancelled ? "#F87171" : "#4ADE80";
+
+  const rows = [
+    { label: "Venue", value: booking.turfName },
+    { label: "Address", value: booking.turfLocation },
+    { label: "Sport", value: booking.sports?.charAt(0).toUpperCase() + booking.sports?.slice(1) },
+    { label: "Date", value: booking.date },
+    { label: "Time Slot", value: booking.timeSlot },
+    { label: "Amount Paid", value: booking.finalAmount ? `₹${booking.finalAmount}` : booking.amount ? `₹${booking.amount}` : "—" },
+    { label: "Payment ID", value: booking.paymentId || "—" },
+    { label: "Booking ID", value: `#${booking.bookingId}` },
+    { label: "Status", value: booking.bookingStatus?.charAt(0).toUpperCase() + booking.bookingStatus?.slice(1), color: statusColor },
+  ];
+
+  return (
+    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <Pressable style={styles.modalSheet} onPress={() => {}}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>Booking Details</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {rows.map(({ label, value, color }) => (
+              value ? (
+                <View key={label} style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>{label}</Text>
+                  <Text style={[styles.detailValue, color && { color }]}>{value}</Text>
+                </View>
+              ) : null
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+            <Text style={styles.closeBtnText}>Close</Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 };
 
@@ -64,6 +109,7 @@ const BookingList = ({ filter, emptyMessage }) => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -111,12 +157,20 @@ const BookingList = ({ filter, emptyMessage }) => {
   }
 
   return (
-    <FlatList
-      data={bookings}
-      keyExtractor={(item) => item.bookingId?.toString()}
-      renderItem={({ item }) => <BookingCard item={item} />}
-      contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
-    />
+    <>
+      <FlatList
+        data={bookings}
+        keyExtractor={(item) => item.bookingId?.toString()}
+        renderItem={({ item }) => (
+          <BookingCard item={item} onViewDetails={setSelectedBooking} />
+        )}
+        contentContainerStyle={{ paddingBottom: 20, paddingTop: 10 }}
+      />
+      <BookingDetailModal
+        booking={selectedBooking}
+        onClose={() => setSelectedBooking(null)}
+      />
+    </>
   );
 };
 
@@ -168,6 +222,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
     color: "#000",
+    flex: 1,
+    marginRight: 8,
   },
   address: {
     fontSize: 14,
@@ -227,5 +283,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     color: "#777",
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    maxHeight: "80%",
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_600SemiBold",
+    color: "#000",
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: "#666",
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: "#000",
+    flex: 1,
+    textAlign: "right",
+  },
+  closeBtn: {
+    marginTop: 20,
+    backgroundColor: "#007BFF",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  closeBtnText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
   },
 });

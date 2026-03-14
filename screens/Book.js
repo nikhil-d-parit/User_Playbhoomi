@@ -201,8 +201,8 @@ const BookingScreen = ({ route }) => {
     // Initial fetch
     fetchSlotStatuses();
 
-    // Poll every 5 seconds
-    pollingIntervalRef.current = setInterval(fetchSlotStatuses, 30000);
+    // Poll every 60 seconds to reduce Firestore reads
+    pollingIntervalRef.current = setInterval(fetchSlotStatuses, 60000);
 
     return () => {
       if (pollingIntervalRef.current) {

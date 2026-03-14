@@ -621,14 +621,15 @@ const BookingStatus = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Cancel Button */}
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => navigation.goBack()}
-          disabled={processing}
-        >
-          <Text style={styles.cancelButtonText}>Cancel & Release Slots</Text>
-        </TouchableOpacity>
+        {/* Cancel Button — hide during payment or after confirmation */}
+        {!processing && !bookingConfirmed && (
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.cancelButtonText}>Cancel & Release Slots</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );

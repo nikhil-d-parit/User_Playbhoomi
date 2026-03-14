@@ -264,14 +264,17 @@ const EditProfileScreen = () => {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Phone Number</Text>
           <TextInput
-            style={[styles.input, styles.disabledInput]}
+            style={styles.input}
             value={phone}
-            editable={false}
-            placeholder="Phone number"
+            onChangeText={setPhone}
+            placeholder="Enter your phone number"
             placeholderTextColor="#999"
             keyboardType="phone-pad"
+            maxLength={15}
           />
-          <Text style={styles.helperText}>Phone number cannot be changed</Text>
+          {!phone && (
+            <Text style={[styles.helperText, { color: '#067B6A' }]}>Add your phone number to receive booking updates</Text>
+          )}
         </View>
       </View>
 

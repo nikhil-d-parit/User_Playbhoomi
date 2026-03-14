@@ -18,42 +18,53 @@ const TopTab = createMaterialTopTabNavigator();
 
 const BookingCard = ({ item, onViewDetails }) => {
   const isCancelled = item.bookingStatus?.toLowerCase() === "cancelled";
+  const statusLabel = item.bookingStatus?.charAt(0).toUpperCase() + item.bookingStatus?.slice(1);
 
   return (
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.cardHeader}>
-        <Text style={styles.venue}>{item.turfName}</Text>
-        <Text
-          style={[
-            styles.status,
-            { backgroundColor: isCancelled ? "#F87171" : "#4ADE80" },
-          ]}
-        >
-          {item.bookingStatus?.charAt(0).toUpperCase() +
-            item.bookingStatus?.slice(1)}
-        </Text>
+        <Text style={styles.venue} numberOfLines={1}>{item.turfName}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: isCancelled ? "#FEE2E2" : "#DCFCE7" }]}>
+          <View style={[styles.statusDot, { backgroundColor: isCancelled ? "#EF4444" : "#22C55E" }]} />
+          <Text style={[styles.statusText, { color: isCancelled ? "#DC2626" : "#16A34A" }]}>
+            {statusLabel}
+          </Text>
+        </View>
       </View>
 
       {/* Address */}
-      <Text style={styles.address}>{item.turfLocation}</Text>
+      <View style={styles.row}>
+        <Ionicons name="location-outline" size={15} color="#6B7280" />
+        <Text style={styles.address} numberOfLines={1}>{item.turfLocation}</Text>
+      </View>
+
+      {/* Sport */}
+      {item.sports && (
+        <View style={styles.row}>
+          <Ionicons name="football-outline" size={15} color="#6B7280" />
+          <Text style={styles.infoText}>
+            {item.sports?.charAt(0).toUpperCase() + item.sports?.slice(1)}
+          </Text>
+        </View>
+      )}
 
       {/* Date & Time */}
       <View style={styles.row}>
-        <Ionicons name="calendar" size={18} color="#007BFF" />
-        <Text style={styles.dateText}>
-          {"  "}
-          {item.date} — {item.timeSlot}
-        </Text>
+        <Ionicons name="calendar-outline" size={15} color="#6B7280" />
+        <Text style={styles.infoText}>{item.date}</Text>
+        <Ionicons name="time-outline" size={15} color="#6B7280" style={{ marginLeft: 12 }} />
+        <Text style={styles.infoText}>{item.timeSlot}</Text>
       </View>
 
-      {/* Booking ID */}
-      <Text style={styles.bookingCode}>Booking ID: #{item.bookingId}</Text>
-
-      {/* Button */}
-      <TouchableOpacity style={styles.detailsBtn} onPress={() => onViewDetails(item)}>
-        <Text style={styles.detailsText}>View Details</Text>
-      </TouchableOpacity>
+      {/* Footer: Booking ID + Button */}
+      <View style={styles.cardFooter}>
+        <Text style={styles.bookingCode}>#{item.bookingId}</Text>
+        <TouchableOpacity style={styles.detailsBtn} onPress={() => onViewDetails(item)}>
+          <Text style={styles.detailsText}>View Details</Text>
+          <Ionicons name="chevron-forward" size={14} color="#007BFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -204,70 +215,94 @@ export default function BookingsScreen() {
 
 const styles = StyleSheet.create({
   card: {
-    margin: 12,
-    padding: 15,
-    borderRadius: 10,
+    marginHorizontal: 14,
+    marginVertical: 6,
+    padding: 16,
+    borderRadius: 12,
     backgroundColor: "#fff",
     shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
   },
   venue: {
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
-    color: "#000",
+    color: "#1E1E1E",
     flex: 1,
-    marginRight: 8,
+    marginRight: 10,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+  statusText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
   },
   address: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
-    color: "gray",
-    marginTop: 4,
+    color: "#6B7280",
+    marginLeft: 6,
+    flex: 1,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 6,
   },
-  dateText: {
-    fontSize: 14,
+  infoText: {
+    fontSize: 13,
     fontFamily: "Inter_500Medium",
-    color: "#000",
+    color: "#374151",
+    marginLeft: 6,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
   },
   bookingCode: {
-    marginTop: 10,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
-    color: "gray",
+    color: "#9CA3AF",
   },
   detailsBtn: {
-    marginTop: 10,
-    alignSelf: "flex-end",
-    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 5,
     paddingHorizontal: 12,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#007BFF",
+    backgroundColor: "#EFF6FF",
   },
   detailsText: {
     color: "#007BFF",
     fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
-  status: {
-    paddingVertical: 2,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    color: "#fff",
+    fontSize: 13,
+    marginRight: 2,
   },
   loader: {
     flex: 1,

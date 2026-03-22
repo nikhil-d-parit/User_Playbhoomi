@@ -168,10 +168,13 @@ const BookingScreen = ({ route }) => {
       })
     : hourlySlots;
 
-  // Fetch slot statuses with polling (optional - won't block UI if it fails)
-  const fetchSlotStatuses = useCallback(async () => {
+  const [slotsLoading, setSlotsLoading] = useState(false);
+
+  // Fetch slot statuses — blocks UI on initial load so booked slots never appear available
+  const fetchSlotStatuses = useCallback(async (isInitial = false) => {
     if (!formattedDate || !selectedSport || hourlySlots.length === 0 || !turfDetails) return;
 
+    if (isInitial) setSlotsLoading(true);
     try {
       const res = await api.post("/slots/status", {
         vendorId: turfDetails.vendorId,
@@ -180,7 +183,6 @@ const BookingScreen = ({ route }) => {
         date: formattedDate,
         timeSlots: hourlySlots,
       });
-    // console.log("Slot statuses response:", res.data);
       if (res.data?.slotStatuses) {
         const statusMap = {};
         res.data.slotStatuses.forEach(({ slot, status, lockId, expiresAt }) => {
@@ -189,8 +191,9 @@ const BookingScreen = ({ route }) => {
         setSlotStatuses(statusMap);
       }
     } catch (err) {
-      // Silently handle errors - slot status is optional enhancement
       console.log("Slot status fetch skipped:", err.response?.status || err.message);
+    } finally {
+      if (isInitial) setSlotsLoading(false);
     }
   }, [formattedDate, selectedSport, hourlySlots, turfDetails]);
 
@@ -198,11 +201,11 @@ const BookingScreen = ({ route }) => {
   useEffect(() => {
     if (!formattedDate || !selectedSport || hourlySlots.length === 0) return;
 
-    // Initial fetch
-    fetchSlotStatuses();
+    // Initial fetch — blocks slot display until loaded
+    fetchSlotStatuses(true);
 
     // Poll every 60 seconds to reduce Firestore reads
-    pollingIntervalRef.current = setInterval(fetchSlotStatuses, 60000);
+    pollingIntervalRef.current = setInterval(() => fetchSlotStatuses(false), 60000);
 
     return () => {
       if (pollingIntervalRef.current) {
@@ -556,6 +559,12 @@ const BookingScreen = ({ route }) => {
 
         {/* Time Slots */}
         <Text style={styles.sectionTitle}>Time</Text>
+        {slotsLoading ? (
+          <View style={{ paddingVertical: 30, alignItems: "center" }}>
+            <ActivityIndicator size="large" color="#004CE8" />
+            <Text style={{ marginTop: 8, color: "#666", fontSize: 13 }}>Loading slot availability...</Text>
+          </View>
+        ) : (
         <View style={styles.slotContainer}>
           {visibleSlots.map((slot) => {
             const { bgColor, textColor, isDisabled, isSelected, statusText, isLocking } = getSlotDisplayInfo(slot);
@@ -591,6 +600,7 @@ const BookingScreen = ({ route }) => {
             );
           })}
         </View>
+        )}
 
         {/* Selected Slots Summary */}
         {selectedSlots.length > 0 && (

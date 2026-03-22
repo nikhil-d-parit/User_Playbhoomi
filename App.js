@@ -28,11 +28,11 @@ import ProfileScreen from "./screens/Profile";
 import VenueDetails from "./screens/VenueDetails";
 import BookScreen from "./screens/Book";
 import BookingStatus from "./screens/BookingStatus";
-import CheckoutScreen from "./screens/Checkout";
 import ChangePasswordScreen from "./screens/ChangePassword";
 import HelpSupportScreen from "./screens/HelpSupport";
 import EditProfileScreen from "./screens/EditProfile";
 import TermsConditionsScreen from "./screens/TermsConditions";
+import BookingSuccess from "./screens/BookingSuccess";
 
 // Navigators
 const Stack = createNativeStackNavigator();
@@ -184,11 +184,11 @@ export default function App() {
               component={ScreenWrapper(NotificationScreen, {
                 withInsets: true,
               })}
-              options={{
+              options={({ navigation }) => ({
                 title: "Notification",
                 headerShown: true,
                 headerLeft: () => (
-                  <TouchableOpacity onPress={() => {}}>
+                  <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Ionicons
                       name="arrow-back"
                       size={24}
@@ -208,7 +208,7 @@ export default function App() {
                     />
                   </TouchableOpacity>
                 ),
-              }}
+              })}
             />
             <Stack.Screen
               name="BookScreen"
@@ -227,11 +227,12 @@ export default function App() {
               }}
             />
             <Stack.Screen
-              name="CheckoutScreen"
-              component={ScreenWrapper(CheckoutScreen, { withInsets: true })}
+              name="BookingSuccess"
+              component={ScreenWrapper(BookingSuccess, { withInsets: true })}
               options={{
-                title: "Checkout",
-                headerShown: true,
+                title: "Booking Confirmed",
+                headerShown: false,
+                gestureEnabled: false,
               }}
             />
             <Stack.Screen

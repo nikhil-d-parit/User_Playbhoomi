@@ -50,6 +50,7 @@ const BookingStatus = () => {
   const [lockSecondsLeft, setLockSecondsLeft] = useState(null);
   const lockTimerRef = useRef(null);
   const autoExtendTriggeredRef = useRef(false);
+  const lockExpiryRef = useRef(null); // mutable expiry so timer re-reads after auto-extend
   const [orderData, setOrderData] = useState(null); // Pre-created Razorpay order
   const [orderLoading, setOrderLoading] = useState(true); // Preparing order in background
 
@@ -57,41 +58,40 @@ const BookingStatus = () => {
   useEffect(() => {
     if (!userLocks || userLocks.length === 0 || bookingConfirmed) return;
 
-    // Find earliest lock expiry from the locks passed via navigation
-    // Locks have expiresAt from the backend response
+    // Initialise expiry ref from lock data
     const expiryTimes = userLocks
       .map((lock) => lock.expiresAt ? new Date(lock.expiresAt).getTime() : null)
       .filter(Boolean);
 
-    if (expiryTimes.length === 0) {
-      // Fallback: assume 10 min from now if no expiresAt provided
-      const fallback = Date.now() + 10 * 60 * 1000;
-      expiryTimes.push(fallback);
-    }
-
-    const earliestExpiry = Math.min(...expiryTimes);
+    lockExpiryRef.current = expiryTimes.length > 0
+      ? Math.min(...expiryTimes)
+      : Date.now() + 10 * 60 * 1000;
 
     lockTimerRef.current = setInterval(() => {
-      const remaining = Math.max(0, Math.floor((earliestExpiry - Date.now()) / 1000));
+      // Always read from ref — so updates after auto-extend are reflected
+      const remaining = Math.max(0, Math.floor((lockExpiryRef.current - Date.now()) / 1000));
       setLockSecondsLeft(remaining);
 
-      // Auto-extend locks when less than 2 minutes remaining
+      // Auto-extend when less than 2 minutes remaining
       if (remaining > 0 && remaining <= 120 && !autoExtendTriggeredRef.current && !processing) {
         autoExtendTriggeredRef.current = true;
-        // Re-call lock endpoint for each lock to extend
-        userLocks.forEach(async (lock) => {
-          try {
-            await api.post("/slots/lock", {
+        Promise.all(
+          userLocks.map((lock) =>
+            api.post("/slots/lock", {
               vendorId: bookingSummary?.vendorId,
               turfId: bookingSummary?.turfId,
               sport: (bookingSummary?.selectedSport || "").toLowerCase(),
               date,
               timeSlot: lock.slot,
-            });
-          } catch (err) {
-            console.warn("Auto-extend lock failed:", err.message);
-          }
-        });
+            })
+          )
+        )
+          .then(() => {
+            // Reset expiry to 10 min from now so the countdown restarts correctly
+            lockExpiryRef.current = Date.now() + 10 * 60 * 1000;
+            autoExtendTriggeredRef.current = false; // allow another auto-extend if needed
+          })
+          .catch((err) => console.warn("Auto-extend lock failed:", err.message));
       }
     }, 1000);
 
@@ -279,22 +279,17 @@ const BookingStatus = () => {
     setProcessing(false);
     setProcessingStep("");
 
-    const paymentId = paymentResponse?.razorpay_payment_id;
-    const bookingId = verifyRes?.data?.bookingId;
-    const message = `Booking Confirmed!\n\nPayment ID: ${paymentId}\nBooking ID: ${bookingId}`;
-
-    if (Platform.OS === "web") {
-      window.alert(message);
-      navigation.navigate("Home");
-      return;
-    }
-
-    Alert.alert("Booking Confirmed", message, [
-      {
-        text: "Go to Home",
-        onPress: () => navigation.navigate("Home"),
-      },
-    ]);
+    // Navigate to success screen with booking details
+    navigation.replace("BookingSuccess", {
+      paymentId: paymentResponse?.razorpay_payment_id,
+      bookingId: verifyRes?.data?.bookingId,
+      turfTitle: bookingSummary?.turfTitle,
+      location: bookingSummary?.location,
+      sport: selectedSport,
+      date,
+      selectedSlots: bookingSummary?.selectedSlots || [],
+      finalAmount,
+    });
   };
 
   const handlePayment = async () => {

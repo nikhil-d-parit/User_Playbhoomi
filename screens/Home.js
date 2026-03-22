@@ -162,7 +162,7 @@ const HomeScreen = () => {
     }
   };
 
- const fetchNearbyVenues = async (latitude, longitude) => {
+ const fetchNearbyVenues = async (latitude, longitude, retrying = false) => {
    try {
      setIsLoading(true);
      setNoResults(false);
@@ -187,6 +187,11 @@ const HomeScreen = () => {
    } catch (error) {
      console.error("Error fetching nearby venues:", error);
      console.error("Error details:", error.response?.data);
+     // Retry once after 2 seconds on failure (handles transient Firestore/network errors)
+     if (!retrying) {
+       setTimeout(() => fetchNearbyVenues(latitude, longitude, true), 2000);
+       return;
+     }
      setVenueData([]);
      setNoResults(true);
    } finally {
@@ -207,27 +212,9 @@ const HomeScreen = () => {
       console.log('📍 Search returned:', response.data?.length || 0, 'turfs');
       console.log('Search turfs data:', JSON.stringify(response.data, null, 2));
 
-      // Perform client-side filtering to ensure searching by title, address, or vendorName
       const results = response.data || [];
-      const kw = (keyword || "").toString().trim().toLowerCase();
-
-      if (kw) {
-        const filtered = results.filter((v) => {
-          const title = (v.title || "").toString().toLowerCase();
-          const address = (v.address || "").toString().toLowerCase();
-          const vendor = (v.vendorName || v.vendor || "").toString().toLowerCase();
-          return (
-            title.includes(kw) ||
-            address.includes(kw) ||
-            vendor.includes(kw)
-          );
-        });
-        setVenueData(filtered);
-        setNoResults(filtered.length === 0);
-      } else {
-        setVenueData(results);
-        setNoResults(results.length === 0);
-      }
+      setVenueData(results);
+      setNoResults(results.length === 0);
     } catch (error) {
       console.error('Error searching turfs:', error);
       console.error('Error details:', error.response?.data);
@@ -283,10 +270,16 @@ const HomeScreen = () => {
             }
           }
         }
-        // Show venues immediately with fallback coords, then re-fetch once real location arrives
-        fetchNearbyVenues(TEST_COORDS.latitude, TEST_COORDS.longitude);
-        hasFetchedWithRealLocation.current = false;
-        getCurrentLocation();
+        // Use existing location if available, otherwise fallback to test coords
+        // Then request real GPS location in background
+        const coords = location?.coords
+          ? { latitude: location.coords.latitude, longitude: location.coords.longitude }
+          : TEST_COORDS;
+        fetchNearbyVenues(coords.latitude, coords.longitude);
+        if (!location?.coords) {
+          hasFetchedWithRealLocation.current = false;
+          getCurrentLocation();
+        }
       } catch (error) {
         console.error('Error initializing data:', error);
       }

@@ -1,7 +1,8 @@
 
 import { initializeApp, getApps } from 'firebase/app';
-import { 
-  initializeAuth, 
+import {
+  initializeAuth,
+  getAuth,
   getReactNativePersistence,
   browserLocalPersistence,
   RecaptchaVerifier,
@@ -26,10 +27,16 @@ if (!getApps().length) {
 }
 
 // Use different persistence based on platform
-const auth = initializeAuth(app, {
-  persistence: Platform.OS === 'web' 
-    ? browserLocalPersistence 
-    : getReactNativePersistence(AsyncStorage)
-});
+// getAuth fallback handles hot-reload where initializeAuth throws "already initialized"
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: Platform.OS === 'web'
+      ? browserLocalPersistence
+      : getReactNativePersistence(AsyncStorage)
+  });
+} catch (e) {
+  auth = getAuth(app);
+}
 
 export { app, auth };

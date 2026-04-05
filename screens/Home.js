@@ -99,6 +99,7 @@ const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const debounceRef = useRef(null);
   const hasFetchedWithRealLocation = useRef(false);
+  const userFilterActiveRef = useRef(false); // Prevents location updates from overwriting active sport/search filters
   const navigation = useNavigation();
 
   // Get user data from Redux store
@@ -229,7 +230,9 @@ const HomeScreen = () => {
   useEffect(() => {
     if (location?.coords && !hasFetchedWithRealLocation.current) {
       hasFetchedWithRealLocation.current = true;
-      fetchNearbyVenues(location.coords.latitude, location.coords.longitude);
+      if (!userFilterActiveRef.current) {
+        fetchNearbyVenues(location.coords.latitude, location.coords.longitude);
+      }
     }
   }, [location]);
 
@@ -239,6 +242,7 @@ const HomeScreen = () => {
       setSelectedSport(null);
       setSearchQuery("");
       setIsFiltered(false);
+      userFilterActiveRef.current = false;
       const coords = getCoords();
       fetchNearbyVenues(coords.latitude, coords.longitude);
     });
@@ -480,6 +484,7 @@ const HomeScreen = () => {
                 onPress={() => {
                   const newSport = selectedSport === sport.id ? null : sport.id;
                   setSelectedSport(newSport);
+                  userFilterActiveRef.current = !!newSport;
                   const coords = getCoords();
                   if (newSport) {
                     searchTurfs(sport.name.toLowerCase(), coords.latitude, coords.longitude);

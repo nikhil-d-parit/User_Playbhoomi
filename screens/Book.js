@@ -1,5 +1,5 @@
 // screens/BookingScreen.js
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -155,18 +155,29 @@ const BookingScreen = ({ route }) => {
     return slots;
   };
 
-  const hourlySlots = timeSlotsToUse.flatMap((timeRange) =>
-    generateHourlySlots(timeRange.open || "06:00", timeRange.close || "22:00", slotDuration)
+  const hourlySlots = useMemo(
+    () =>
+      timeSlotsToUse.flatMap((timeRange) =>
+        generateHourlySlots(timeRange.open || "06:00", timeRange.close || "22:00", slotDuration)
+      ),
+    [selectedSport, formattedDate, slotDuration]
   );
+
+  // Stable string key for use in dependency arrays (avoids array-reference churn)
+  const hourlySlotsKey = useMemo(() => hourlySlots.join(","), [hourlySlots]);
 
   // Fix 1: Filter out past slots when the selected date is today
   const isToday = formattedDate === moment().format("YYYY-MM-DD");
-  const visibleSlots = isToday
-    ? hourlySlots.filter((slot) => {
-        const [startTime] = slot.split(" - ");
-        return moment(`${formattedDate} ${startTime}`, "YYYY-MM-DD HH:mm").isAfter(moment());
-      })
-    : hourlySlots;
+  const visibleSlots = useMemo(
+    () =>
+      isToday
+        ? hourlySlots.filter((slot) => {
+            const [startTime] = slot.split(" - ");
+            return moment(`${formattedDate} ${startTime}`, "YYYY-MM-DD HH:mm").isAfter(moment());
+          })
+        : hourlySlots,
+    [hourlySlots, isToday, formattedDate]
+  );
 
   const [slotsLoading, setSlotsLoading] = useState(false);
 
@@ -195,7 +206,7 @@ const BookingScreen = ({ route }) => {
     } finally {
       if (isInitial) setSlotsLoading(false);
     }
-  }, [formattedDate, selectedSport, hourlySlots, turfDetails]);
+  }, [formattedDate, selectedSport, hourlySlotsKey, turfDetails]);
 
   // Start polling for slot statuses
   useEffect(() => {
@@ -212,7 +223,7 @@ const BookingScreen = ({ route }) => {
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [fetchSlotStatuses]);
+  }, [formattedDate, selectedSport, hourlySlotsKey]);
 
   // Cleanup locks when leaving screen
   useEffect(() => {

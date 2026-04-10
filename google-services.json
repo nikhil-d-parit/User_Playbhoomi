@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "401563657330-7il3j2uvhp15vkft54nbo80l9hortsln.apps.googleusercontent.com",
+          "client_id": "401563657330-e0tb12136l4uhv00dputu99loqtq0085.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.nikhil.parit.Krida",
-            "certificate_hash": "b0087fbff60cb80d9d0e6a12a442b6bbc6a45920"
+            "certificate_hash": "7e2b4d71a35b960b0e440c2c7c4f0b6490facf92"
           }
         },
         {

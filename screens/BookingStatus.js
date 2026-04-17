@@ -565,10 +565,12 @@ const BookingStatus = () => {
             <Text style={styles.itemValue}>Rs.{totalBeforeDiscount}.00</Text>
           </View>
 
-          <View style={styles.cardRow}>
-            <Text style={styles.itemLabel}>Discount Applied ({discountRate}%)</Text>
-            <Text style={[styles.itemValue, { color: "#00C247" }]}>-Rs.{discountAmount}.00</Text>
-          </View>
+          {discountAmount > 0 && (
+            <View style={styles.cardRow}>
+              <Text style={styles.itemLabel}>Discount Applied ({discountRate}%)</Text>
+              <Text style={[styles.itemValue, { color: "#00C247" }]}>-Rs.{discountAmount}.00</Text>
+            </View>
+          )}
 
           <View style={styles.separator} />
 
@@ -578,13 +580,15 @@ const BookingStatus = () => {
           </View>
         </View>
 
-        {/* Savings message */}
-        <View style={styles.bottomBanner}>
-          <MaterialIcons name="celebration" size={20} color="#00C247" />
-          <Text style={styles.savedText}>
-            You saved <Text style={styles.greenAmount}>Rs.{discountAmount}.00</Text> on this booking
-          </Text>
-        </View>
+        {/* Savings message — only show when discount applied */}
+        {discountAmount > 0 && (
+          <View style={styles.bottomBanner}>
+            <MaterialIcons name="celebration" size={20} color="#00C247" />
+            <Text style={styles.savedText}>
+              You saved <Text style={styles.greenAmount}>Rs.{discountAmount}.00</Text> on this booking
+            </Text>
+          </View>
+        )}
 
         {/* Pay Button */}
         <TouchableOpacity

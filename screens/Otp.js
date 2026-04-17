@@ -27,7 +27,7 @@ const OTPScreen = () => {
     <View style={styles.container}>
       <View style={styles.innerContainer}>
         <View style={{ justifyContent: "center", alignItems: "center",marginVertical:20 }}>
-          <Text style={styles.mainHeader}>KRIDA</Text>
+          <Text style={styles.mainHeader}>PLAYBHOOMI</Text>
         </View>
         <Text style={styles.title}>Enter OTP</Text>
         <Text style={styles.subtitle}>

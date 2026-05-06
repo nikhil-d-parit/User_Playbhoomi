@@ -38,6 +38,54 @@ import BookingSuccess from "./screens/BookingSuccess";
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+class ScreenErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, message: "" };
+  }
+
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      message: error?.message || String(error || "Unknown render error"),
+    };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("Screen render failed:", error, info?.componentStack);
+  }
+
+  componentDidUpdate(prevProps) {
+    const prevRoute = prevProps.route?.key;
+    const nextRoute = this.props.route?.key;
+    if (this.state.hasError && prevRoute !== nextRoute) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Unable to open this screen</Text>
+          <Text style={styles.errorText}>Please go back and try another venue.</Text>
+          {!!this.state.message && (
+            <Text style={styles.errorDetails}>{this.state.message}</Text>
+          )}
+          <TouchableOpacity
+            style={styles.errorButton}
+            onPress={() => this.props.navigation?.goBack?.()}
+          >
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // Wrapper with optional insets
 const ScreenWrapper =
   (Component, { withInsets = false, onlyTopInset = false } = {}) =>
@@ -54,7 +102,9 @@ const ScreenWrapper =
     }
     return (
       <View style={wrapperStyle}>
-        <Component {...props} />
+        <ScreenErrorBoundary route={props.route} navigation={props.navigation}>
+          <Component {...props} />
+        </ScreenErrorBoundary>
       </View>
     );
   };
@@ -285,6 +335,45 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+    backgroundColor: "#fff",
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_600SemiBold",
+    color: "#1E1E1E",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: "#757575",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  errorDetails: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: "#B3261E",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  errorButton: {
+    backgroundColor: "#004CE8",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  errorButtonText: {
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
   },
   iconContainer: {
     borderRadius: 20,

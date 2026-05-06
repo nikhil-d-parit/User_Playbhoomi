@@ -19,7 +19,7 @@ ios/
 *.p12
 *.key
 *.mobileprovision
-
+.env
 # Metro
 .metro-health-check*
 
@@ -31,7 +31,6 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
-.env
 # local env files
 # .env  (uncommented so EAS Build can include it)
 .env*.local

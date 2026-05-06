@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderWidth: 1,
     borderColor: "#7B7B7B40",
-    fontFamily: "Inter_400Medium",
+    fontFamily: "Inter_400Regular",
     color: "#1E1E1E",
   },
   button: { marginTop: 10 },

@@ -4,7 +4,7 @@
     "slug": "PlayBhoomi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/AppIconnew.png",
+    "icon": "./assets/new_icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "splash": {
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/AppIconnew.png",
+        "foregroundImage": "./assets/new_icon.png",
         "backgroundColor": "#00C247"
       },
       "edgeToEdgeEnabled": true,

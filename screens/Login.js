@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     position: "relative",
     bottom: 4,
-    fontFamily: "Inter_500Regular",
+    fontFamily: "Inter_500Medium",
   },
   otpTimer: {
     textAlign: "center",

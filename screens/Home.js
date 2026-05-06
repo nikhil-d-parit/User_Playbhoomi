@@ -52,13 +52,33 @@ const sportIconMap = {
   Cricket:    cricketGradBat,
   Football:   footBallIconGrad,
   Tennis:     tennisIconGrad,
+  Pickleball: tennisIconGrad,
   Badminton:  badmintonIconGrad,
   Basketball: basketballIconGrad,
 };
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+
+const getImageUrl = (image) => {
+  if (typeof image === "string") return image;
+  if (image && typeof image === "object") {
+    return image.secure_url || image.url || image.uri || image.src || null;
+  }
+  return null;
+};
+
+const getDisplayName = (item) => {
+  if (typeof item === "string") return item;
+  if (item && typeof item === "object") {
+    return item.name || item.title || item.label || "";
+  }
+  return "";
+};
+
 // Helper function to get minimum slot price and its discounted price from venue sports
 const getMinPricing = (venue) => {
-  if (!venue.sports || venue.sports.length === 0) {
+  const sportsList = asArray(venue.sports);
+  if (sportsList.length === 0) {
     return { minPrice: null, originalPrice: null };
   }
   
@@ -66,7 +86,7 @@ const getMinPricing = (venue) => {
   let minSport = null;
   let minPrice = Infinity;
   
-  venue.sports.forEach(sport => {
+  sportsList.forEach(sport => {
     const price = sport.discountedPrice || sport.slotPrice;
     if (price != null && price > 0 && price < minPrice) {
       minPrice = price;
@@ -177,7 +197,9 @@ const HomeScreen = () => {
      if (venues.length > 0) {
        //console.log('📍 First venue:', venues[0]);
      }
-     const activeVenues = venues.filter((venue) => venue.deleted !== true);
+     const activeVenues = venues.filter(
+       (venue) => venue.deleted !== true && Number(venue.isSuspended || 0) !== 1
+     );
     //  console.log(
     //    "Filtered nearby venues:",
     //    JSON.stringify(activeVenues)
@@ -378,6 +400,12 @@ const HomeScreen = () => {
       whiteIcon: tennisIconWhite,
     },
     {
+      id: "Pickleball",
+      name: "Pickleball",
+      gradientIcon: tennisIconGrad,
+      whiteIcon: tennisIconWhite,
+    },
+    {
       id: "Badminton",
       name: "Badminton",
       gradientIcon: badmintonIconGrad,
@@ -565,7 +593,10 @@ const HomeScreen = () => {
             </Text>
           </View>
         ) : (
-          venueData.map((venue) => (
+          venueData.map((venue) => {
+            const imageUrls = asArray(venue.images).map(getImageUrl).filter(Boolean);
+            const sportsList = asArray(venue.sports);
+            return (
             <View style={styles.cardContainer} key={venue.turfId}>
             <TouchableOpacity
               onPress={() => navigation.navigate("VenueDetails", { turfId: venue.turfId })}
@@ -575,8 +606,8 @@ const HomeScreen = () => {
                 showsHorizontalScrollIndicator={false}
                 style={styles.imageScroll}
               >
-                {venue.images?.length > 0 ? (
-                  venue.images.map((url, index) => (
+                {imageUrls.length > 0 ? (
+                  imageUrls.map((url, index) => (
                     <Image
                       key={index}
                       source={{ uri: url }}
@@ -612,8 +643,8 @@ const HomeScreen = () => {
                   </View>
 
                   <View style={styles.iconRow}>
-                    {venue.sports?.slice(0, 4).map((sport, i) => {
-                      const icon = sportIconMap[sport.name];
+                    {sportsList.slice(0, 4).map((sport, i) => {
+                      const icon = sportIconMap[getDisplayName(sport)];
                       return icon ? (
                         <Image
                           key={i}
@@ -656,7 +687,9 @@ const HomeScreen = () => {
               </View>
             </TouchableOpacity>
           </View>
-        )))}
+            );
+          })
+        )}
       </ScrollView>
     </View>
   );

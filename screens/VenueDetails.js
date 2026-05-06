@@ -11,7 +11,7 @@ import {
   Linking,
   Platform,
 } from "react-native";
-import { Text, Chip } from "react-native-paper";
+import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import api from "../src/services/apiService";
@@ -31,6 +31,24 @@ import shoeIcon from "../assets/icons/gradient/icon-shoe-gradient.png";
 import noSmokingIcon from "../assets/icons/gradient/icon-no_smoking-gradient.png";
 
 const screenWidth = Dimensions.get("window").width;
+
+const asArray = (value) => (Array.isArray(value) ? value : []);
+
+const getImageUrl = (image) => {
+  if (typeof image === "string") return image;
+  if (image && typeof image === "object") {
+    return image.secure_url || image.url || image.uri || image.src || null;
+  }
+  return null;
+};
+
+const getDisplayName = (item) => {
+  if (typeof item === "string") return item;
+  if (item && typeof item === "object") {
+    return item.name || item.title || item.label || "";
+  }
+  return "";
+};
 
 const VenueDetailsScreen = ({ route }) => {
   const amenityMap = {
@@ -72,7 +90,6 @@ const VenueDetailsScreen = ({ route }) => {
       try {
         setIsLoading(true);
         const response = await api.get(`/users/turfs/${turfId}`);
-        console.log("Turf details:", JSON.stringify(response.data));
         setTurfDetails(response.data);
       } catch (error) {
         console.error("Error fetching turf details:", error);
@@ -105,38 +122,62 @@ const VenueDetailsScreen = ({ route }) => {
   };
 
   const formatTimeToAMPM = (time) => {
-  if (!time) return "";
-
-  const [hours, minutes] = time.split(":").map(Number);
-  const period = hours >= 12 ? "PM" : "AM";
-  const formattedHours = hours % 12 || 12;
-
-  return `${formattedHours}:${minutes.toString().padStart(2, "0")} ${period}`;
-};
+    if (!time || typeof time !== "string" || !time.includes(":")) return "";
+    const [hours, minutes] = time.split(":").map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return "";
+    const period = hours >= 12 ? "PM" : "AM";
+    const formattedHours = hours % 12 || 12;
+    return `${formattedHours}:${minutes.toString().padStart(2, "0")} ${period}`;
+  };
 
   const renderChip = (iconSource, label, customTextStyle = {}) => (
-    <Chip
-      icon={() => (
-        <Image
-          source={iconSource}
-          style={{ width: 20, height: 20 }}
-          resizeMode="contain"
-        />
-      )}
-      style={styles.chip}
-      textStyle={[styles.chipText, customTextStyle]}
-    >
-      {label}
-    </Chip>
+    <View style={styles.chip}>
+      <Image
+        source={iconSource}
+        style={styles.chipIcon}
+        resizeMode="contain"
+      />
+      <Text
+        style={[styles.chipText, customTextStyle]}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
+        {String(label || "")}
+      </Text>
+    </View>
   );
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color="#004CE8" />
       </View>
     );
   }
+
+  if (!turfDetails) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center", padding: 20 }]}>
+        <Text style={{ color: "#666", textAlign: "center", marginBottom: 16 }}>
+          Unable to load turf details. Please try again.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={{ paddingHorizontal: 20, paddingVertical: 10, backgroundColor: "#004CE8", borderRadius: 8 }}
+        >
+          <Text style={{ color: "#fff" }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const imageUrls = asArray(turfDetails.images).map(getImageUrl).filter(Boolean);
+  const sportsList = asArray(turfDetails.sports);
+  const amenitiesList = asArray(turfDetails.amenities);
+  const rulesList = asArray(turfDetails.rules);
+  const firstSportSlots = asArray(sportsList[0]?.timeSlots);
+  const rootTimeSlots = asArray(turfDetails.timeSlots);
+  const openingSlot = firstSportSlots[0] || rootTimeSlots[0] || {};
 
   return (
     <View style={styles.container}>
@@ -144,8 +185,8 @@ const VenueDetailsScreen = ({ route }) => {
         {/* Image Carousel */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.imageRow}>
-            {turfDetails?.images?.length > 0 ? (
-              turfDetails.images.map((url, index) => (
+            {imageUrls.length > 0 ? (
+              imageUrls.map((url, index) => (
                 <Image
                   key={index}
                   source={{ uri: url }}
@@ -166,7 +207,7 @@ const VenueDetailsScreen = ({ route }) => {
         {/* Venue Info */}
         <View style={styles.content}>
           <Text variant="titleLarge" style={styles.title}>
-            {turfDetails.title}
+            {turfDetails?.title || "Turf"}
           </Text>
 
           <View style={styles.locationRow}>
@@ -179,21 +220,22 @@ const VenueDetailsScreen = ({ route }) => {
 
           {/* Prices */}
           <View style={styles.chipRow}>
-            {turfDetails?.sports?.map((sport, index) => {
+            {sportsList.map((sport, index) => {
+              const sportName = getDisplayName(sport) || "Sport";
               const sportIconMap = {
                 Cricket: cricketGradBat,
                 Football: footBallIconGrad,
                 Tennis: tennisIconGrad,
+                Pickleball: tennisIconGrad,
                 Badminton: badmintonIconGrad,
               };
-              const icon = sportIconMap[sport.name] || footBallIconGrad;
-              const courtCount = sport.courts?.length || 0;
-              const courtLabel = courtCount > 0 ? ` • ${courtCount} Court${courtCount !== 1 ? 's' : ''}` : '';
+              const icon = sportIconMap[sportName] || footBallIconGrad;
+              const price = sport?.discountedPrice || sport?.slotPrice || "N/A";
               return (
               <React.Fragment key={index}>
                 {renderChip(
                   icon,
-                  `${sport.name} - ₹${sport.discountedPrice || sport.slotPrice}/hr${courtLabel}`,
+                  `${sportName} - Rs. ${price}${price !== "N/A" ? "/hr" : ""}`,
                   {
                     color: "#49454F",
                     fontFamily: "Inter_500Medium",
@@ -220,15 +262,9 @@ const VenueDetailsScreen = ({ route }) => {
               style={{ width: 18, height: 18, marginRight: 6 }}
             />
             <Text style={styles.sportText}>
-              {formatTimeToAMPM(
-                turfDetails?.sports?.[0]?.timeSlots?.[0]?.open ||
-                  turfDetails?.timeSlots?.[0]?.open,
-              )}
+              {formatTimeToAMPM(openingSlot.open)}
               {" - "}
-              {formatTimeToAMPM(
-                turfDetails?.sports?.[0]?.timeSlots?.[0]?.close ||
-                  turfDetails?.timeSlots?.[0]?.close,
-              )}
+              {formatTimeToAMPM(openingSlot.close)}
             </Text>
           </View>
 
@@ -237,12 +273,12 @@ const VenueDetailsScreen = ({ route }) => {
             Amenities
           </Text>
           <View style={styles.chipRow}>
-            {turfDetails?.amenities?.map((item, index) => {
+            {amenitiesList.map((item, index) => {
               // Handle both string format (old) and object format (new)
-              const amenityKey = typeof item === "string" ? item : item?.name;
+              const amenityKey = getDisplayName(item);
               if (!amenityKey) return null;
 
-              const amenity = amenityMap[amenityKey.toLowerCase()];
+              const amenity = amenityMap[amenityKey.toLowerCase().trim()];
               // If we have mapping, use it; otherwise create a default chip
               const icon = amenity?.icon || shoeIcon;
               const label = amenity?.label || amenityKey;
@@ -262,12 +298,12 @@ const VenueDetailsScreen = ({ route }) => {
             Rules & Policies
           </Text>
           <View style={styles.rulesList}>
-            {turfDetails?.rules?.map((item, index) => {
+            {rulesList.map((item, index) => {
               // Handle both string format (old) and object format (new)
-              const ruleName = typeof item === "string" ? item : item?.name;
+              const ruleName = getDisplayName(item);
               if (!ruleName) return null;
 
-              const icon = ruleIconMap[ruleName.toLowerCase()] || clockIcon;
+              const icon = ruleIconMap[ruleName.toLowerCase().trim()] || clockIcon;
               return (
                 <View key={index} style={styles.ruleItem}>
                   <Image
@@ -280,7 +316,7 @@ const VenueDetailsScreen = ({ route }) => {
                 </View>
               );
             })}
-            {turfDetails?.cancellationHours && (
+            {Number(turfDetails?.cancellationHours) > 0 && (
               <View style={styles.ruleItem}>
                 <Image
                   source={clockIcon}
@@ -312,10 +348,10 @@ const VenueDetailsScreen = ({ route }) => {
                 resizeMode="contain"
               />
               <Text style={styles.locationCardAddress} numberOfLines={2}>
-                {turfDetails.address}
+                {turfDetails.address || ""}
               </Text>
               <View style={styles.directionsBtn}>
-                <Text style={styles.directionsBtnText}>Get Directions →</Text>
+                <Text style={styles.directionsBtnText}>Get Directions</Text>
               </View>
             </TouchableOpacity>
           ) : (
@@ -395,14 +431,24 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: "#F1F5F9",
-    height: 42,
+    minHeight: 42,
     minWidth: "47%",
     flex: 1,
-    justifyContent: "center",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  chipIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 8,
   },
   chipText: {
+    flex: 1,
     fontSize: 13,
-    fontFamily: "Inter_500Regular",
+    fontFamily: "Inter_500Medium",
     color: "#49454F",
   },
   rulesList: {

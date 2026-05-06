@@ -19,6 +19,8 @@ import cricketBatWhite from "../assets/icons/white/icon-cricket-white.png";
 import cricketGradBat from "../assets/icons/gradient/icon-cricket-gradient.png";
 import footBallIconGrad from "../assets/icons/gradient/icon-football-gradient.png";
 import footBallIconWhite from "../assets/icons/white/football_white.png";
+import tennisIconGrad from "../assets/icons/gradient/icon-tennis-gradient.png";
+import tennisIconWhite from "../assets/icons/white/tennis_white.png";
 import badmintonIconGrad from "../assets/icons/gradient/icon-badminton-gradient.png";
 import badmintonIconWhite from "../assets/icons/white/badminton_white.png";
 import basketballIconGrad from "../assets/icons/gradient/icon-basketball-gradient.png";
@@ -29,6 +31,7 @@ const TEST_COORDS = { latitude: 23.239172, longitude: 87.859145 };
 const sports = [
   { id: "Cricket",    name: "Cricket",    gradientIcon: cricketGradBat,    whiteIcon: cricketBatWhite },
   { id: "Football",   name: "Football",   gradientIcon: footBallIconGrad,  whiteIcon: footBallIconWhite },
+  { id: "Pickleball", name: "Pickleball", gradientIcon: tennisIconGrad,    whiteIcon: tennisIconWhite },
   { id: "Badminton",  name: "Badminton",  gradientIcon: badmintonIconGrad, whiteIcon: badmintonIconWhite },
   { id: "Basketball", name: "Basketball", gradientIcon: basketballIconGrad,whiteIcon: basketballIconWhite },
 ];

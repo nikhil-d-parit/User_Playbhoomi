@@ -27,6 +27,10 @@ import tennisIconWhite from "../assets/icons/white/tennis_white.png";
 import badmintonIconGrad from "../assets/icons/gradient/icon-badminton-gradient.png";
 import badmintonIconWhite from "../assets/icons/white/badminton_white.png";
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+const getSportName = (sport) =>
+  typeof sport === "string" ? sport : sport?.name || "";
+
 const BookingScreen = ({ route }) => {
   const { turfDetails } = route.params || {};
   const navigation = useNavigation();
@@ -50,16 +54,19 @@ const BookingScreen = ({ route }) => {
     { id: "Cricket", name: "Cricket", gradientIcon: cricketGradBat, whiteIcon: cricketBatWhite },
     { id: "Football", name: "Football", gradientIcon: footBallIconGrad, whiteIcon: footBallIconWhite },
     { id: "Tennis", name: "Tennis", gradientIcon: tennisIconGrad, whiteIcon: tennisIconWhite },
+    { id: "Pickleball", name: "Pickleball", gradientIcon: tennisIconGrad, whiteIcon: tennisIconWhite },
     { id: "Badminton", name: "Badminton", gradientIcon: badmintonIconGrad, whiteIcon: badmintonIconWhite },
   ];
 
+  const turfSports = asArray(turfDetails?.sports);
+
   const availableSports = predefinedSports.filter((sport) =>
-    turfDetails?.sports?.some((t) => t.name.toLowerCase() === sport.name.toLowerCase())
+    turfSports.some((t) => getSportName(t).toLowerCase() === sport.name.toLowerCase())
   );
 
   // Get SELECTED sport details (slotDuration and timeSlots)
-  const selectedSportDetails = turfDetails?.sports?.find(
-    (s) => s.name.toLowerCase() === selectedSport?.toLowerCase()
+  const selectedSportDetails = turfSports.find(
+    (s) => getSportName(s).toLowerCase() === selectedSport?.toLowerCase()
   );
 
   // Get slot duration from selected sport (default 60 mins)
@@ -72,8 +79,8 @@ const BookingScreen = ({ route }) => {
   const timeSlotsToUse = (() => {
     if (!selectedSportDetails) return [{ open: "06:00", close: "22:00" }];
     const { weekdayTimeSlots, weekendTimeSlots } = selectedSportDetails;
-    if (isWeekend && weekendTimeSlots?.length > 0) return weekendTimeSlots;
-    if (!isWeekend && weekdayTimeSlots?.length > 0) return weekdayTimeSlots;
+    if (isWeekend && asArray(weekendTimeSlots).length > 0) return asArray(weekendTimeSlots);
+    if (!isWeekend && asArray(weekdayTimeSlots).length > 0) return asArray(weekdayTimeSlots);
     return [{ open: "06:00", close: "22:00" }];
   })();
 
@@ -134,7 +141,9 @@ const BookingScreen = ({ route }) => {
 
   // Parse times and generate slots with dynamic duration
   const parseTime = (time) => {
+    if (typeof time !== "string" || !time.includes(":")) return null;
     const [h, m] = time.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
     const d = new Date();
     d.setHours(h, m, 0, 0);
     return d;
@@ -143,10 +152,15 @@ const BookingScreen = ({ route }) => {
   const generateHourlySlots = (open, close, duration) => {
     const slots = [];
     let current = parseTime(open);
-    const end = parseTime(close);
+    let end = parseTime(close);
+    const safeDuration = Number(duration) > 0 ? Number(duration) : 60;
+    if (!current || !end) return slots;
+    if (end <= current) {
+      end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    }
 
     while (current < end) {
-      const next = new Date(current.getTime() + duration * 60 * 1000);
+      const next = new Date(current.getTime() + safeDuration * 60 * 1000);
       if (next <= end) {
         slots.push(`${moment(current).format("HH:mm")} - ${moment(next).format("HH:mm")}`);
       }
@@ -158,7 +172,7 @@ const BookingScreen = ({ route }) => {
   const hourlySlots = useMemo(
     () =>
       timeSlotsToUse.flatMap((timeRange) =>
-        generateHourlySlots(timeRange.open || "06:00", timeRange.close || "22:00", slotDuration)
+        generateHourlySlots(timeRange?.open || "06:00", timeRange?.close || "22:00", slotDuration)
       ),
     [selectedSport, formattedDate, slotDuration]
   );
@@ -181,6 +195,9 @@ const BookingScreen = ({ route }) => {
 
   const [slotsLoading, setSlotsLoading] = useState(false);
 
+  const getSelectedSlotCount = (slot) =>
+    selectedSlots.filter((selectedSlot) => selectedSlot === slot).length;
+
   // Fetch slot statuses — blocks UI on initial load so booked slots never appear available
   const fetchSlotStatuses = useCallback(async (isInitial = false) => {
     if (!formattedDate || !selectedSport || hourlySlots.length === 0 || !turfDetails) return;
@@ -196,8 +213,9 @@ const BookingScreen = ({ route }) => {
       });
       if (res.data?.slotStatuses) {
         const statusMap = {};
-        res.data.slotStatuses.forEach(({ slot, status, lockId, expiresAt }) => {
-          statusMap[slot] = { status, lockId, expiresAt };
+        res.data.slotStatuses.forEach((slotStatus) => {
+          const { slot } = slotStatus;
+          statusMap[slot] = slotStatus;
         });
         setSlotStatuses(statusMap);
       }
@@ -292,32 +310,49 @@ const BookingScreen = ({ route }) => {
     return () => clearInterval(timer);
   }, [selectedSlots, slotStatuses]);
 
-  // Handle slot press - toggle selection (with optional locking)
+  const removeOneSelectedSlot = (slot) => {
+    const userLock = userLocks.find((l) => l.slot === slot);
+    setSelectedSlots((prev) => {
+      const next = [...prev];
+      const index = next.indexOf(slot);
+      if (index >= 0) next.splice(index, 1);
+      return next;
+    });
+
+    if (userLock?.lockId) {
+      setUserLocks((prev) => {
+        const index = prev.findIndex((l) => l.lockId === userLock.lockId);
+        if (index < 0) return prev;
+        const next = [...prev];
+        next.splice(index, 1);
+        return next;
+      });
+      api.delete(`/slots/unlock/${userLock.lockId}`)
+        .catch((err) => console.log("Lock release skipped:", err.message))
+        .finally(() => fetchSlotStatuses());
+    }
+  };
+
+  // Handle slot press - each tap reserves one available pitch for that time
   const handleSlotPress = async (slot) => {
     const statusInfo = slotStatuses[slot] || { status: "available" };
-    const { status, lockId: existingLockId } = statusInfo;
+    const { status } = statusInfo;
+    const selectedCount = getSelectedSlotCount(slot);
+    const sportCapacity = asArray(selectedSportDetails?.courts).length || 1;
+    const availableCount = Number.isFinite(Number(statusInfo.availableCount))
+      ? Number(statusInfo.availableCount)
+      : Math.max(sportCapacity - selectedCount, 0);
 
     if (status === "booked") {
       return Alert.alert("Unavailable", "This slot is already booked");
     }
 
-    if (status === "locked") {
+    if (status === "locked" && selectedCount === 0) {
       return Alert.alert("In Use", "Another user is currently booking this slot. Please try again later.");
     }
 
-    // If already selected by this user, deselect it
-    if (selectedSlots.includes(slot) || status === "selected") {
-      // Optimistic update: change UI instantly, release lock in background
-      setSelectedSlots((prev) => prev.filter((s) => s !== slot));
-      const userLock = userLocks.find((l) => l.slot === slot);
-      const lockIdToRelease = userLock?.lockId || existingLockId;
-      if (lockIdToRelease) {
-        setUserLocks((prev) => prev.filter((l) => l.slot !== slot));
-        api.delete(`/slots/unlock/${lockIdToRelease}`)
-          .catch((err) => console.log("Lock release skipped:", err.message))
-          .finally(() => fetchSlotStatuses());
-      }
-      return;
+    if (selectedCount > 0 && availableCount <= 0) {
+      return Alert.alert("Selected", "This slot is already reserved. Long press the slot to remove one reservation.");
     }
 
     // Select the slot and try to lock it
@@ -336,9 +371,8 @@ const BookingScreen = ({ route }) => {
         setUserLocks((prev) => [...prev, { slot, lockId: res.data.lockId }]);
         fetchSlotStatuses();
       } else {
-        // Still select the slot even if locking fails (graceful degradation)
-        setSelectedSlots((prev) => [...prev, slot]);
-        //console.log("Lock failed, proceeding without lock:", res.data.message);
+        Alert.alert("Slot Unavailable", res.data?.message || "This slot is no longer available");
+        fetchSlotStatuses();
       }
     } catch (err) {
       // If 409 conflict, show alert but don't select
@@ -346,9 +380,8 @@ const BookingScreen = ({ route }) => {
         Alert.alert("Slot Unavailable", err.response?.data?.message || "This slot is no longer available");
         fetchSlotStatuses();
       } else {
-        // For other errors (like auth), still allow selection (graceful degradation)
-        setSelectedSlots((prev) => [...prev, slot]);
-        //console.log("Lock skipped due to error:", err.message);
+        Alert.alert("Error", "Unable to reserve this slot. Please try again.");
+        fetchSlotStatuses();
       }
     } finally {
       setLockingSlot(null);
@@ -359,7 +392,8 @@ const BookingScreen = ({ route }) => {
   const getSlotDisplayInfo = (slot) => {
     const statusInfo = slotStatuses[slot] || { status: "available" };
     const { status } = statusInfo;
-    const isSelected = selectedSlots.includes(slot) || status === "selected";
+    const selectedCount = getSelectedSlotCount(slot);
+    const isSelected = selectedCount > 0 || status === "selected";
     const isLocking = lockingSlot === slot;
 
     let bgColor = "#E9ECEF"; // available
@@ -385,7 +419,7 @@ const BookingScreen = ({ route }) => {
       statusText = "Reserving...";
     }
 
-    return { bgColor, textColor, isDisabled, isSelected, statusText, isLocking };
+    return { bgColor, textColor, isDisabled, isSelected, statusText, isLocking, selectedCount };
   };
 
   // Book selected slots
@@ -578,12 +612,15 @@ const BookingScreen = ({ route }) => {
         ) : (
         <View style={styles.slotContainer}>
           {visibleSlots.map((slot) => {
-            const { bgColor, textColor, isDisabled, isSelected, statusText, isLocking } = getSlotDisplayInfo(slot);
+            const { bgColor, textColor, isDisabled, isSelected, statusText, isLocking, selectedCount } = getSlotDisplayInfo(slot);
 
             return (
               <TouchableOpacity
                 key={slot}
                 onPress={() => handleSlotPress(slot)}
+                onLongPress={() => {
+                  if (getSelectedSlotCount(slot) > 0) removeOneSelectedSlot(slot);
+                }}
                 disabled={isLocking || (isDisabled && !selectedSlots.includes(slot))}
                 style={{ width: "30%", marginVertical: 5 }}
               >
@@ -595,6 +632,9 @@ const BookingScreen = ({ route }) => {
                     style={[styles.slot, styles.gradientBackground]}
                   >
                     <Text style={[styles.slotText, { color: "#fff" }]}>{slot}</Text>
+                    {selectedCount > 1 && (
+                      <Text style={[styles.statusText, { color: "#fff" }]}>x{selectedCount}</Text>
+                    )}
                   </LinearGradient>
                 ) : (
                   <View style={[styles.slot, { backgroundColor: bgColor }]}>

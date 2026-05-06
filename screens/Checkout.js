@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   venueDate: {
     fontSize: 13,
-    fontFamily: "Inter_500Regular",
+    fontFamily: "Inter_500Medium",
     color: "#343A40",
   },
   venueIcon: {
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   },
   priceValue: {
     fontSize: 14,
-    fontFamily: "Inter_500Regular",
+    fontFamily: "Inter_500Medium",
     color: "#000",
   },
   totalLabel: {
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
 
   subLabel: {
     fontSize: 13,
-    fontFamily: "Inter_500Regular",
+    fontFamily: "Inter_500Medium",
     color: "#6c757d",
     marginBottom: 8,
   },
@@ -322,7 +322,7 @@ line: {
 orText: {
   marginHorizontal: 10,
   fontSize: 14,
-  fontFamily: "Inter_500Regular",
+  fontFamily: "Inter_500Medium",
   color: "#666",
 },
 });

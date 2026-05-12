@@ -113,7 +113,7 @@ const HomeScreen = () => {
   const [userPhoto, setUserPhoto] = useState("https://i.pravatar.cc/100?img=1");
   const [location, setLocation] = useState(null);
   const [locationString, setLocationString] = useState("Loading location...");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [noResults, setNoResults] = useState(false);
   const [isFiltered, setIsFiltered] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -755,10 +755,11 @@ const styles = StyleSheet.create({
 
   circleContainer: {
     flexDirection: "row",
-    justifyContent: "space-evenly",
+    justifyContent: "space-between",
     paddingTop: 20,
+    paddingHorizontal: 10,
   },
-  circleWrapper: { alignItems: "center" },
+  circleWrapper: { alignItems: "center", width: 56 },
   circle: {
     width: 42,
     height: 42,

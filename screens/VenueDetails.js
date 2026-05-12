@@ -11,6 +11,7 @@ import {
   Linking,
   Platform,
 } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 import { Text } from "react-native-paper";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -338,20 +339,42 @@ const VenueDetailsScreen = ({ route }) => {
           {turfDetails?.vendorCoordinates?.lat &&
           turfDetails?.vendorCoordinates?.lng ? (
             <TouchableOpacity
-              style={styles.locationCard}
+              activeOpacity={0.9}
               onPress={openGoogleMaps}
-              activeOpacity={0.8}
+              style={styles.mapContainer}
             >
-              <Image
-                source={locationIcon}
-                style={{ width: 32, height: 32, marginBottom: 8 }}
-                resizeMode="contain"
-              />
-              <Text style={styles.locationCardAddress} numberOfLines={2}>
-                {turfDetails.address || ""}
-              </Text>
-              <View style={styles.directionsBtn}>
-                <Text style={styles.directionsBtnText}>Get Directions</Text>
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude: turfDetails.vendorCoordinates.lat,
+                  longitude: turfDetails.vendorCoordinates.lng,
+                  latitudeDelta: 0.005,
+                  longitudeDelta: 0.005,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+                pointerEvents="none"
+              >
+                <Marker
+                  coordinate={{
+                    latitude: turfDetails.vendorCoordinates.lat,
+                    longitude: turfDetails.vendorCoordinates.lng,
+                  }}
+                  title={turfDetails.title || "Venue"}
+                  description={turfDetails.address || ""}
+                />
+              </MapView>
+              <View style={styles.directionsOverlay}>
+                <Image
+                  source={locationIcon}
+                  style={{ width: 16, height: 16, marginRight: 6 }}
+                  resizeMode="contain"
+                />
+                <Text style={styles.directionsBtnText}>
+                  {turfDetails.address || "Get Directions"}
+                </Text>
               </View>
             </TouchableOpacity>
           ) : (
@@ -483,6 +506,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
+  },
+  mapContainer: {
+    marginTop: 10,
+    width: screenWidth - 32,
+    height: 180,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  map: {
+    width: "100%",
+    height: "100%",
+  },
+  directionsOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(6, 123, 106, 0.92)",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
   },
   locationCard: {
     marginTop: 10,
